@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CGS Driver Companion</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="app-header">
+        <h1>CGS Driver Companion</h1>
+        <p>Route assistant for daily deliveries</p>
+      </header>
+
+      <section class="panel" aria-labelledby="route-title">
+        <h2 id="route-title">Today's Route</h2>
+        <dl class="route-summary">
+          <div>
+            <dt>Route ID</dt>
+            <dd>RTE-001</dd>
+          </div>
+          <div>
+            <dt>Driver</dt>
+            <dd>Demo Driver</dd>
+          </div>
+          <div>
+            <dt>Stops</dt>
+            <dd><span id="remaining-stops">3</span> remaining</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section class="panel" aria-labelledby="stops-title">
+        <h2 id="stops-title">Delivery Stops</h2>
+        <ol id="stop-list" class="stop-list">
+          <li>
+            <button type="button" class="stop-item" data-stop="123 Market St">
+              <span class="stop-name">123 Market St</span>
+              <span class="stop-status">Pending</span>
+            </button>
+          </li>
+          <li>
+            <button type="button" class="stop-item" data-stop="42 Oak Ave">
+              <span class="stop-name">42 Oak Ave</span>
+              <span class="stop-status">Pending</span>
+            </button>
+          </li>
+          <li>
+            <button type="button" class="stop-item" data-stop="900 River Rd">
+              <span class="stop-name">900 River Rd</span>
+              <span class="stop-status">Pending</span>
+            </button>
+          </li>
+        </ol>
+      </section>
+
+      <section class="panel" aria-labelledby="notes-title">
+        <h2 id="notes-title">Notes</h2>
+        <textarea id="notes" rows="4" placeholder="Quick delivery notes..."></textarea>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
