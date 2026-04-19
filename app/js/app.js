@@ -14,14 +14,14 @@ async function loadPage(pageName) {
     navButtons.forEach(btn => {
       btn.classList.toggle('active', btn.dataset.page === pageName);
     });
-  } catc0h (error) {
+  } catch (error) {
     contentDiv.innerHTML = '<div class="error">Page could not be loaded</div>';
     console.error(error);
   }
 }
 
 // Set up navigation
-navButton0s.forEach(button => {
+navButtons.forEach(button => {
   button.addEventListener('click', () => {
     loadPage(button.dataset.page);
   });
