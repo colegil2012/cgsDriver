@@ -7,4 +7,5 @@ exec chromium \
   --no-first-run \
   --ozone-platform=wayland \
   --password-store=basic \
+  --allow-file-access-from-files \
   --app=file:///home/druid-mobile/celtech/app/index.html
