@@ -8,4 +8,6 @@ exec chromium \
   --ozone-platform=wayland \
   --password-store=basic \
   --allow-file-access-from-files \
+  --enable-features=UseOzonePlatform \
+  --touch-events=enabled \
   --app=file:///home/druid-mobile/celtech/app/index.html
