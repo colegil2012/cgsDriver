@@ -6,19 +6,21 @@
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <div class="sidebar">
-    <div class="brand">
-      <img src="images/cgs_mini.png" alt="CGS Driver">
-    </div>
-    <button>Start Route</button>
-    <button>Deliveries</button>
-    <button>Messages</button>
-    <button>Vehicle Check</button>
-    <button>Settings</button>
+<div class="sidebar">
+  <div class="brand">
+    <img src="images/cgs_mini.png" alt="CGS Driver">
   </div>
-  <div class="main">
-    <h1>Welcome, Driver</h1>
-    <p>Select an option from the sidebar to get started.</p>
-  </div>
+  <button data-page="home" class="nav-btn active">Home</button>
+  <button data-page="route" class="nav-btn">Start Route</button>
+  <button data-page="deliveries" class="nav-btn">Deliveries</button>
+  <button data-page="messages" class="nav-btn">Messages</button>
+  <button data-page="vehicle" class="nav-btn">Vehicle Check</button>
+  <button data-page="settings" class="nav-btn">Settings</button>
+</div>
+<div class="main" id="content">
+  <!-- Content loads here dynamically -->
+</div>
+
+<script src="js/app.js"></script>
 </body>
 </html>

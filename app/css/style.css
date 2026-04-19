@@ -1,7 +1,8 @@
+
   * { box-sizing: border-box; }
   body {
     margin: 0;
-    font-family: sans-serif;
+    font-family: 'Segoe UI', sans-serif;
     background: #1a2415;
     color: #e8f0e3;
     display: flex;
@@ -49,22 +50,101 @@
     border-color: #c9a962;
     box-shadow: 0 2px 8px rgba(201, 169, 98, 0.2);
   }
-  .sidebar button:active {
+  .sidebar button.active {
     background: #556b44;
+    border-color: #c9a962;
+    box-shadow: 0 0 12px rgba(201, 169, 98, 0.3);
+  }
+  .sidebar button:active {
     transform: translateY(1px);
   }
   .main {
     flex: 1;
     padding: 40px;
     background: linear-gradient(135deg, #1a2415 0%, #243320 100%);
+    overflow-y: auto;
   }
-  h1 {
+
+  /* Welcome/Home page styling */
+  .welcome-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 80vh;
+    text-align: center;
+  }
+  .logo-hero {
+    margin-bottom: 30px;
+    animation: fadeIn 1.2s ease-in;
+  }
+  .hero-logo {
+    max-width: 300px;
+    height: auto;
+    filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.6));
+  }
+  .welcome-title {
+    font-size: 48px;
+    margin: 20px 0 10px;
+    color: #c9a962;
+    text-shadow: 3px 3px 8px rgba(0, 0, 0, 0.7);
+    font-weight: 300;
+    letter-spacing: 2px;
+    animation: fadeIn 1.5s ease-in;
+  }
+  .welcome-subtitle {
+    font-size: 20px;
+    color: #a8d49b;
+    font-style: italic;
+    margin-bottom: 40px;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+    animation: fadeIn 1.8s ease-in;
+  }
+  .welcome-message {
+    max-width: 600px;
+    padding: 30px;
+    background: rgba(42, 58, 34, 0.6);
+    border: 2px solid #3d5230;
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+    animation: fadeIn 2.1s ease-in;
+  }
+  .welcome-message p {
+    font-size: 18px;
+    color: #d4e0cc;
+    margin: 0;
+  }
+
+  /* Page content styling */
+  .page-content {
+    animation: fadeIn 0.3s ease-in;
+  }
+  .page-content h1 {
     margin-top: 0;
     color: #c9a962;
     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
     border-bottom: 2px solid #3d5230;
     padding-bottom: 12px;
   }
-  p {
+  .page-content p {
     color: #d4e0cc;
+    font-size: 16px;
+  }
+
+  /* Animations */
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .error {
+    color: #ff6b6b;
+    padding: 20px;
+    text-align: center;
   }
