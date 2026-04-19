@@ -18,7 +18,7 @@ log() {
 }
 
 log "-----------------------------------"
-log "Starting Celtech update"
+log "Starting Celtech Driver App software update"
 
 # Check we're in a git repo
 if [ ! -d "$APP_DIR/.git" ]; then
