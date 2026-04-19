@@ -28,12 +28,18 @@ fi
 
 cd "$APP_DIR"
 
-# Check for network connectivity before attempting pull
-log "Checking network..."
-if ! ping -c 1 -W 5 8.8.8.8 &>/dev/null; then
-    log "WARNING: No network connectivity. Skipping update, continuing with existing version."
-    exit 0
-fi
+# Wait for network connectivity (up to 30 seconds)
+log "Waiting for network..."
+WAIT=0
+until ping -c 1 -W 2 8.8.8.8 &>/dev/null; do
+    WAIT=$((WAIT + 2))
+    if [ $WAIT -ge 30 ]; then
+        log "WARNING: No network after 30s. Skipping update, continuing with existing version."
+        exit 0
+    fi
+    sleep 2
+done
+log "Network ready after ${WAIT}s."
 
 # Fetch and pull latest from main
 log "Fetching from origin..."
@@ -51,8 +57,9 @@ else
 fi
 
 # Always fix permissions regardless of whether an update occurred
-log "Fixing permissions on launch.sh..."
+log "Fixing permissions on launch.sh and update.sh"
 chmod +x "$APP_DIR/launch.sh"
+chmod +x "$APP_DIR/update.sh"
 
 log "Update complete."
 log "-----------------------------------"
