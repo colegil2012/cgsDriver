@@ -10,4 +10,5 @@ exec chromium \
   --allow-file-access-from-files \
   --enable-features=UseOzonePlatform \
   --touch-events=enabled \
+  --force-device-scale-factor=1 \
   --app=file:///home/druid-mobile/celtech/app/index.html
