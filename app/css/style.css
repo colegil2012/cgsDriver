@@ -45,19 +45,27 @@
     transition: all 0.2s ease;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
   }
-  .sidebar button:hover {
-    background: #4a6239;
-    border-color: #c9a962;
-    box-shadow: 0 2px 8px rgba(201, 169, 98, 0.2);
-  }
   .sidebar button.active {
     background: #556b44;
     border-color: #c9a962;
     box-shadow: 0 0 12px rgba(201, 169, 98, 0.3);
   }
   .sidebar button:active {
+    background: #556b44;
+    border-color: #c9a962;
     transform: translateY(1px);
+    box-shadow: 0 0 12px rgba(201, 169, 98, 0.3);
   }
+  .sidebar button:focus {
+      outline: none;
+    }
+    .sidebar button:focus-visible {
+      outline: none;
+    }
+    /* Prevent sticky tap highlight on touch devices */
+    .sidebar button {
+      -webkit-tap-highlight-color: transparent;
+    }
   .main {
     flex: 1;
     padding: 40px;

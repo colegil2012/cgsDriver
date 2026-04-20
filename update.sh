@@ -1,13 +1,10 @@
 #!/bin/bash
 # =============================================================
 # Celtech Kiosk Update Script
-# /home/druid-mobile/celtech/update.sh
-#
-# Pulls latest version from git main branch and fixes permissions.
-# Safe to run manually or automatically on boot.
+# Hard-resets local working copy to match origin/main.
 # =============================================================
 
-set -e  # Exit immediately on any error
+set -e
 
 APP_DIR="/home/druid-mobile/celtech"
 LOG_FILE="/home/druid-mobile/update.log"
@@ -20,7 +17,6 @@ log() {
 log "-----------------------------------"
 log "Starting Celtech Driver App software update"
 
-# Check we're in a git repo
 if [ ! -d "$APP_DIR/.git" ]; then
     log "ERROR: $APP_DIR is not a git repository. Aborting."
     exit 1
@@ -28,7 +24,7 @@ fi
 
 cd "$APP_DIR"
 
-# Wait for network connectivity (up to 30 seconds)
+# Wait for network (up to 30 seconds)
 log "Waiting for network..."
 WAIT=0
 until ping -c 1 -W 2 8.8.8.8 &>/dev/null; do
@@ -41,7 +37,6 @@ until ping -c 1 -W 2 8.8.8.8 &>/dev/null; do
 done
 log "Network ready after ${WAIT}s."
 
-# Fetch and pull latest from main
 log "Fetching from origin..."
 git fetch origin "$BRANCH" >> "$LOG_FILE" 2>&1
 
@@ -49,14 +44,19 @@ LOCAL=$(git rev-parse HEAD)
 REMOTE=$(git rev-parse "origin/$BRANCH")
 
 if [ "$LOCAL" = "$REMOTE" ]; then
+    # Still clean any stray modifications just in case
+    if [ -n "$(git status --porcelain)" ]; then
+        log "Local modifications detected, resetting to clean state..."
+        git reset --hard "origin/$BRANCH" >> "$LOG_FILE" 2>&1
+    fi
     log "Already up to date ($(git rev-parse --short HEAD)). No update needed."
 else
     log "Update available: $(git rev-parse --short HEAD) -> $(git rev-parse --short origin/$BRANCH)"
-    git pull origin "$BRANCH" >> "$LOG_FILE" 2>&1
+    # Hard reset discards any local changes and matches remote exactly
+    git reset --hard "origin/$BRANCH" >> "$LOG_FILE" 2>&1
     log "Updated to: $(git rev-parse --short HEAD)"
 fi
 
-# Always fix permissions regardless of whether an update occurred
 log "Fixing permissions on launch.sh and update.sh"
 chmod +x "$APP_DIR/launch.sh"
 chmod +x "$APP_DIR/update.sh"

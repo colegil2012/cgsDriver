@@ -22,8 +22,9 @@ async function loadPage(pageName) {
 
 // Set up navigation
 navButtons.forEach(button => {
-  button.addEventListener('click', () => {
+  button.addEventListener('click', (event) => {
     loadPage(button.dataset.page);
+    event.currentTarget.blur();  // Release focus after tap
   });
 });
 
