@@ -8,7 +8,7 @@
   // Dev fallback location — used if geolocation fails or is denied
   // Set this to your shop or home base coordinates
   const FALLBACK_LOCATION = {
-    lat: 38.003,  // Washington DC — replace with your actual base location
+    lat: 38.003,
     lng: -85.715
   };
 
