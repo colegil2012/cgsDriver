@@ -42,8 +42,6 @@ exec chromium \
   --enable-features=UseOzonePlatform \
   --touch-events=enabled \
   --force-device-scale-factor=1 \
-  --enable-logging \
-  --v=1 \
   --disable-session-crashed-bubble \
   --disable-popup-blocking \
   --user-data-dir="$CHROMIUM_PROFILE" \
