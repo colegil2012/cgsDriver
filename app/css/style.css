@@ -156,3 +156,56 @@
     padding: 20px;
     text-align: center;
   }
+  /* ====== Map container styles ====== */
+
+  /* Make .main a positioning context so map-container can fill it */
+  /* Also make the main area padding zero when map is active so map goes edge-to-edge */
+  .main:has(.map-container) {
+    padding: 0;
+  }
+
+  .map-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  #map {
+    width: 100%;
+    height: 100%;
+  }
+
+  #map-overlay {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  .map-status {
+    background: rgba(26, 36, 21, 0.85);
+    color: #d4e0cc;
+    padding: 8px 14px;
+    border-radius: 6px;
+    border: 1px solid #3d5230;
+    font-size: 13px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    transition: opacity 0.5s ease;
+    pointer-events: auto;
+  }
+
+  .map-status.warning {
+    border-color: #c9a962;
+    color: #c9a962;
+  }
+
+  .map-status.error {
+    border-color: #ff6b6b;
+    color: #ff6b6b;
+  }
+
+  .map-status.fade-out {
+    opacity: 0;
+  }
