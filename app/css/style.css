@@ -108,20 +108,54 @@
     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
     animation: fadeIn 1.8s ease-in;
   }
-  .welcome-message {
-    max-width: 600px;
-    padding: 30px;
-    background: rgba(42, 58, 34, 0.6);
-    border: 2px solid #3d5230;
-    border-radius: 12px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  .start-route-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+    padding: 20px 40px;
+    background: linear-gradient(135deg, #3d5230 0%, #556b44 100%);
+    color: #e8f0e3;
+    border: 2px solid #c9a962;
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: 22px;
+    font-weight: 500;
+    letter-spacing: 1px;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4),
+                0 0 20px rgba(201, 169, 98, 0.15);
+    transition: all 0.2s ease;
     animation: fadeIn 2.1s ease-in;
+    -webkit-tap-highlight-color: transparent;
   }
-  .welcome-message p {
-    font-size: 18px;
-    color: #d4e0cc;
-    margin: 0;
+
+  .start-route-btn:active {
+    transform: translateY(2px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4),
+                0 0 24px rgba(201, 169, 98, 0.4);
+    background: linear-gradient(135deg, #556b44 0%, #3d5230 100%);
   }
+
+  .start-route-btn:focus,
+  .start-route-btn:focus-visible {
+    outline: none;
+  }
+
+  .start-route-icon {
+    color: #c9a962;
+    font-size: 28px;
+    line-height: 1;
+    transition: transform 0.2s ease;
+  }
+
+  .start-route-btn:active .start-route-icon {
+    transform: translateX(4px);
+  }
+
+  .start-route-label {
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+  }
+
 
   /* Page content styling */
   .page-content {

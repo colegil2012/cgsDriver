@@ -45,5 +45,16 @@ navButtons.forEach(button => {
   });
 });
 
+// Event delegation for in-content navigation (handles elements with data-page
+// inside loaded partials, like the Start Your Journey button on home)
+contentDiv.addEventListener('click', (event) => {
+  const target = event.target.closest('[data-page]');
+  if (target && contentDiv.contains(target)) {
+    loadPage(target.dataset.page);
+    target.blur();
+  }
+});
+
+
 // Load home page on startup
 loadPage('home');
