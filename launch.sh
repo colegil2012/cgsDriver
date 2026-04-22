@@ -9,6 +9,7 @@ exec chromium \
   --password-store=basic \
   --allow-file-access-from-files \
   --enable-features=UseOzonePlatform \
+  --enable-features=UseOzonePlatform --geolocation-disable-user-gesture-required \
   --touch-events=enabled \
   --force-device-scale-factor=1 \
   --app=file:///home/druid-mobile/celtech/app/index.html
