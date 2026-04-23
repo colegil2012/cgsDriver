@@ -190,10 +190,9 @@
     padding: 20px;
     text-align: center;
   }
+
   /* ====== Map container styles ====== */
 
-  /* Make .main a positioning context so map-container can fill it */
-  /* Also make the main area padding zero when map is active so map goes edge-to-edge */
   .main:has(.map-container) {
     padding: 0;
   }
@@ -242,4 +241,35 @@
 
   .map-status.fade-out {
     opacity: 0;
+  }
+
+  /* ====== MapLibre GL UI theming ====== */
+  /* Make MapLibre's default controls fit the Celtech dark palette */
+
+  .maplibregl-ctrl-attrib {
+    background: rgba(26, 36, 21, 0.85) !important;
+    color: #d4e0cc !important;
+    font-size: 11px;
+  }
+
+  .maplibregl-ctrl-attrib a {
+    color: #c9a962 !important;
+  }
+
+  .maplibregl-ctrl-group {
+    background: rgba(42, 58, 34, 0.9) !important;
+    border: 1px solid #3d5230 !important;
+  }
+
+  .maplibregl-ctrl-group button {
+    background-color: transparent !important;
+  }
+
+  .maplibregl-ctrl-group button:hover {
+    background-color: rgba(85, 107, 68, 0.4) !important;
+  }
+
+  /* Invert the control icons (they're dark by default; we need light on dark bg) */
+  .maplibregl-ctrl-group button span {
+    filter: invert(0.85);
   }

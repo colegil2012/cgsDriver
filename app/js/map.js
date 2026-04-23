@@ -12,55 +12,25 @@
     lng: -85.715
   };
 
-  const DEFAULT_ZOOM = 15;
+  const DEFAULT_ZOOM = 14;
+
+  // MapTiler style URL — "streets-v2" is their main interactive style.
+  // Other options: "basic-v2", "outdoor-v2", "satellite", "hybrid", "toner-v2"
+  function getStyleUrl() {
+    const key = window.CELTECH_CONFIG && window.CELTECH_CONFIG.MAPTILER_API_KEY;
+    if (!key) {
+      console.error('MAPTILER_API_KEY missing from config');
+      return null;
+    }
+    return `https://api.maptiler.com/maps/streets-v2/style.json?key=${key}`;
+  }
 
   let map = null;
   let currentMarker = null;
-  let apiLoaded = false;
-  let apiLoading = false;
+  let routeLayerAdded = false;
 
-  // Load Google Maps JS API dynamically with the key from config
-  function loadGoogleMapsApi(callback) {
-    if (apiLoaded) {
-      callback();
-      return;
-    }
-    if (apiLoading) {
-      // Another call is already loading the API — wait for it
-      const checkInterval = setInterval(() => {
-        if (apiLoaded) {
-          clearInterval(checkInterval);
-          callback();
-        }
-      }, 100);
-      return;
-    }
-
-    if (!window.CELTECH_CONFIG || !window.CELTECH_CONFIG.GOOGLE_MAPS_API_KEY) {
-      showError('Missing API key configuration');
-      return;
-    }
-
-    apiLoading = true;
-    window.__celtechMapsCallback = function () {
-      apiLoaded = true;
-      apiLoading = false;
-      callback();
-    };
-
-    const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${window.CELTECH_CONFIG.GOOGLE_MAPS_API_KEY}&callback=__celtechMapsCallback&loading=async`;
-    script.async = true;
-    script.defer = true;
-    script.onerror = () => {
-      apiLoading = false;
-      showError('Failed to load Google Maps');
-    };
-    document.head.appendChild(script);
-  }
-
-  // Get current location — uses browser geolocation for now.
-  // When GPS hat arrives, replace this with a function that reads from it.
+  // Get current location — browser geolocation for now,
+  // GPS hat integration later will replace this function only
   function getCurrentPosition() {
     return new Promise((resolve) => {
       if (!navigator.geolocation) {
@@ -90,7 +60,7 @@
           resolve({ ...FALLBACK_LOCATION, source: 'fallback' });
         },
         {
-          enableHighAccuracy: false,  // Low accuracy OK for network-based location
+          enableHighAccuracy: false,
           timeout: 7000,
           maximumAge: 60000
         }
@@ -125,48 +95,102 @@
     const mapDiv = document.getElementById('map');
     if (!mapDiv) return;
 
-    map = new google.maps.Map(mapDiv, {
-      center: { lat: location.lat, lng: location.lng },
+    const styleUrl = getStyleUrl();
+    if (!styleUrl) {
+      showError('Missing map API key');
+      return;
+    }
+
+    map = new maplibregl.Map({
+      container: 'map',
+      style: styleUrl,
+      center: [location.lng, location.lat],  // MapLibre uses [lng, lat] order
       zoom: DEFAULT_ZOOM,
-      disableDefaultUI: false,
-      zoomControl: true,
-      mapTypeControl: false,
-      streetViewControl: false,
-      fullscreenControl: false,
-      gestureHandling: 'greedy',  // Single-finger pan on touchscreens
-      styles: [
-        // Optional dark-ish theme to match the Celtech UI
-        { elementType: 'geometry', stylers: [{ color: '#1a2415' }] },
-        { elementType: 'labels.text.stroke', stylers: [{ color: '#1a2415' }] },
-        { elementType: 'labels.text.fill', stylers: [{ color: '#d4e0cc' }] },
-        { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#3d5230' }] },
-        { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0d1a08' }] }
-      ]
+      attributionControl: true
     });
 
-    currentMarker = new google.maps.Marker({
-      position: { lat: location.lat, lng: location.lng },
-      map: map,
-      title: 'You are here'
-    });
+    // Navigation controls (zoom in/out, compass)
+    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+
+    // Drop a "you are here" marker
+    currentMarker = new maplibregl.Marker({ color: '#c9a962' })
+      .setLngLat([location.lng, location.lat])
+      .addTo(map);
 
     updateStatus(location);
   }
 
-  // Public entry point — called from app.js after route partial loads
+  // ===== Public interface =====
+
+  // Called by app.js after route partial loads
   window.celtechInitMap = function () {
-    loadGoogleMapsApi(() => {
-      getCurrentPosition().then((location) => {
-        initMap(location);
-      });
+    if (typeof maplibregl === 'undefined') {
+      showError('MapLibre GL not loaded');
+      return;
+    }
+    getCurrentPosition().then((location) => {
+      initMap(location);
     });
   };
 
-  // Hook for future GPS hat updates — call this with new coords to recenter
+  // Called by GPS integration later to update the current location marker
   window.celtechUpdateLocation = function (lat, lng) {
     if (!map || !currentMarker) return;
-    const pos = { lat, lng };
-    currentMarker.setPosition(pos);
-    map.panTo(pos);
+    currentMarker.setLngLat([lng, lat]);
+    map.panTo([lng, lat]);
+  };
+
+  // Draw a route on the map — takes a GeoJSON LineString (as returned by router.js)
+  window.celtechSetRoute = function (geojsonLineString) {
+    if (!map) return;
+
+    // Wait until map style is loaded before adding sources/layers
+    const addRoute = () => {
+      if (routeLayerAdded) {
+        map.getSource('celtech-route').setData(geojsonLineString);
+        return;
+      }
+
+      map.addSource('celtech-route', {
+        type: 'geojson',
+        data: geojsonLineString
+      });
+
+      map.addLayer({
+        id: 'celtech-route-line',
+        type: 'line',
+        source: 'celtech-route',
+        layout: {
+          'line-join': 'round',
+          'line-cap': 'round'
+        },
+        paint: {
+          'line-color': '#c9a962',
+          'line-width': 5,
+          'line-opacity': 0.85
+        }
+      });
+
+      routeLayerAdded = true;
+    };
+
+    if (map.isStyleLoaded()) {
+      addRoute();
+    } else {
+      map.once('load', addRoute);
+    }
+  };
+
+  // Drop a marker at an arbitrary lat/lng (used for delivery stops)
+  window.celtechAddMarker = function (lat, lng, label) {
+    if (!map) return null;
+    const marker = new maplibregl.Marker({ color: '#a8d49b' })
+      .setLngLat([lng, lat])
+      .addTo(map);
+    if (label) {
+      const popup = new maplibregl.Popup({ offset: 25 }).setText(label);
+      marker.setPopup(popup);
+    }
+    return marker;
   };
 })();
