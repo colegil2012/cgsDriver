@@ -22,7 +22,7 @@
       console.error('MAPTILER_API_KEY missing from config');
       return null;
     }
-    return `https://api.maptiler.com/maps/streets-v2/style.json?key=${key}`;
+    return `https://api.maptiler.com/maps/019db9e6-e353-7631-9622-4cc61dadc50b/style.json?key=${key}`;
   }
 
   let map = null;
