@@ -243,6 +243,140 @@
     opacity: 0;
   }
 
+  /* ====== Orders tab (append to style.css) ====== */
+
+  .orders-subtitle {
+    color: #a8d49b;
+    font-style: italic;
+    margin-bottom: 24px;
+  }
+
+  .orders-loading,
+  .orders-empty {
+    color: #a8d49b;
+    text-align: center;
+    padding: 40px 20px;
+    font-style: italic;
+  }
+
+  .orders-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 16px;
+  }
+
+  .order-card {
+    background: rgba(42, 58, 34, 0.6);
+    border: 2px solid #3d5230;
+    border-radius: 8px;
+    padding: 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    transition: border-color 0.2s ease;
+  }
+
+  .order-card:hover {
+    border-color: #556b44;
+  }
+
+  .order-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #3d5230;
+  }
+
+  .order-number {
+    color: #c9a962;
+    font-weight: 600;
+    font-size: 15px;
+    letter-spacing: 0.5px;
+  }
+
+  .order-status {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: rgba(168, 212, 155, 0.15);
+    color: #a8d49b;
+    border: 1px solid #556b44;
+  }
+
+  .order-status-paid {
+    background: rgba(168, 212, 155, 0.15);
+    color: #a8d49b;
+    border-color: #556b44;
+  }
+
+  .order-status-pending {
+    background: rgba(201, 169, 98, 0.15);
+    color: #c9a962;
+    border-color: #c9a962;
+  }
+
+  .order-status-cancelled,
+  .order-status-refunded {
+    background: rgba(255, 107, 107, 0.1);
+    color: #ff6b6b;
+    border-color: #ff6b6b;
+  }
+
+  .order-customer {
+    color: #e8f0e3;
+    font-size: 16px;
+    font-weight: 500;
+    margin-bottom: 2px;
+  }
+
+  .order-phone {
+    color: #a8d49b;
+    font-size: 13px;
+    margin-bottom: 8px;
+  }
+
+  .order-address {
+    color: #d4e0cc;
+    font-size: 13px;
+    margin-bottom: 10px;
+    line-height: 1.5;
+  }
+
+  .order-items {
+    color: #a8d49b;
+    font-size: 12px;
+    font-style: italic;
+    margin-bottom: 10px;
+    line-height: 1.4;
+  }
+
+  .order-instructions {
+    color: #c9a962;
+    font-size: 12px;
+    background: rgba(201, 169, 98, 0.08);
+    border-left: 3px solid #c9a962;
+    padding: 8px 10px;
+    margin-bottom: 12px;
+    border-radius: 0 4px 4px 0;
+  }
+
+  .order-card-footer {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 10px;
+    padding-top: 8px;
+    border-top: 1px solid #3d5230;
+  }
+
+  .order-total {
+    color: #c9a962;
+    font-size: 18px;
+    font-weight: 600;
+  }
+
   /* ====== MapLibre GL UI theming ====== */
   /* Make MapLibre's default controls fit the Celtech dark palette */
 

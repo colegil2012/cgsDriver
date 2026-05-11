@@ -69,6 +69,8 @@ if [ ! -f "$ENV_FILE" ]; then
     GOOGLE_MAPS_API_KEY=""
     MAPTILER_API_KEY=""
     ORS_API_KEY=""
+    API_BASE_URL=""
+    CELTECH_DRIVER_TOKEN=""
 else
     set -a
     source "$ENV_FILE"
@@ -96,6 +98,24 @@ if [ -n "${ORS_API_KEY:-}" ]; then
     log "ORS_API_KEY present (${#ORS_API_KEY} chars)."
 else
     log "WARNING: ORS_API_KEY is empty — routing features will not work."
+fi
+
+if [ -n "${GOOGLE_MAPS_API_KEY:-}" ]; then
+    log "GOOGLE_MAPS_API_KEY present (${#GOOGLE_MAPS_API_KEY} chars)."
+else
+    log "WARNING: GOOGLE_MAPS_API_KEY is empty — Google Maps will not load."
+fi
+
+if [ -n "${API_BASE_URL:-}" ]; then
+    log "API_BASE_URL = ${API_BASE_URL}"
+else
+    log "WARNING: API_BASE_URL is empty — driver API calls will not work."
+fi
+
+if [ -n "${CELTECH_DRIVER_TOKEN:-}" ]; then
+    log "CELTECH_DRIVER_TOKEN present (${#CELTECH_DRIVER_TOKEN} chars)."
+else
+    log "WARNING: CELTECH_DRIVER_TOKEN is empty — driver API calls will be rejected."
 fi
 
 
