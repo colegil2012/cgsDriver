@@ -29,11 +29,11 @@
 
     function authHeaders() {
         const headers = { 'Content-Type': 'application/json' };
-        const token = window.CELTECH_CONFIG && window.CELTECH_CONFIG.DRIVER_DEVICE_TOKEN;
+        const token = window.CELTECH_CONFIG && window.CELTECH_CONFIG.CELTECH_DRIVER_TOKEN;
         if (token) {
             headers['Authorization'] = `Bearer ${token}`;
         } else {
-            console.warn('DRIVER_DEVICE_TOKEN missing — API requests will be rejected');
+            console.warn('CELTECH_DRIVER_TOKEN missing — API requests will be rejected');
         }
         return headers;
     }
