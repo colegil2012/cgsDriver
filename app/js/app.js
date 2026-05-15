@@ -11,14 +11,15 @@ const pageInitializers = {
     // The map module's celtechSetRoute / celtechAddMarker queue calls made
     // before the map is built, so this ordering is safe:
     //   1. initMap (async — buildMap will run when the Google API loads)
-    //   2. fetch active route (async)
-    //   3. when it resolves, render header + stops, hand geometry to map
+    //   2. fetch active route (async)        — paints the left/main column
+    //   3. fetch orders (async)              — paints the right panel
     if (typeof window.celtechInitMap === 'function') {
       window.celtechInitMap();
     } else {
       console.error('Map module not loaded');
     }
     refreshActiveRoute();
+    renderRoutePageOrders();
   },
   orders: () => {
     renderOrdersList();
@@ -68,18 +69,26 @@ contentDiv.addEventListener('click', (event) => {
 
 
 // ============================================================================
-// Orders page — listing, selection, Generate Route action
+// Shared helpers — what counts as routable
 // ============================================================================
-
-let selectedOrderIds = new Set();
-let lastFetchedOrders = [];
-let isGeneratingRoute = false;
 
 function isRoutable(order) {
   if (!order || order.status !== 'PAID') return false;
   const ds = order.deliveryStatus;
   return ds == null || ds === 'PENDING';
 }
+
+
+// ============================================================================
+// Orders page — listing, selection, Generate Route action
+//
+// State is module-scoped here but isolated from the Route page's orders
+// panel (which has its own renderer and doesn't touch these variables).
+// ============================================================================
+
+let selectedOrderIds = new Set();
+let lastFetchedOrders = [];
+let isGeneratingRoute = false;
 
 async function renderOrdersList() {
   const list = document.getElementById('orders-list');
@@ -108,11 +117,23 @@ async function renderOrdersList() {
     if (!routableIds.has(id)) selectedOrderIds.delete(id);
   }
 
-  list.innerHTML = orders.map(renderOrderCard).join('');
+  // Interactive mode — checkboxes, Select All, action bar all participate.
+  list.innerHTML = orders.map((o) => renderOrderCard(o, 'interactive')).join('');
   updateOrdersControls();
 }
 
-function renderOrderCard(order) {
+/**
+ * Render a single order as an HTML card.
+ *
+ * @param order  the DriverOrderDTO
+ * @param mode   'interactive' (Orders tab — shows checkbox on routable rows)
+ *               | 'readonly'  (Route tab right panel — no checkbox, no
+ *                              hover hint, never marked "selected")
+ */
+function renderOrderCard(order, mode) {
+  mode = mode || 'interactive';
+  const interactive = (mode === 'interactive');
+
   const id = order.id || '';
   const num = order.orderNumber || '—';
   const customer = escapeHtml(order.customerName || 'Unknown customer');
@@ -138,12 +159,18 @@ function renderOrderCard(order) {
       : '';
 
   const routable = isRoutable(order);
-  const checked = routable && selectedOrderIds.has(id) ? 'checked' : '';
-  const checkbox = routable
-      ? `<label class="order-select" aria-label="Select order ${escapeHtml(String(num))}">
-           <input type="checkbox" class="order-select-checkbox" data-order-id="${escapeHtml(id)}" ${checked}>
-         </label>`
-      : `<span class="order-select order-select-placeholder" aria-hidden="true"></span>`;
+
+  // Checkbox slot: real checkbox only in interactive mode AND when routable.
+  // Read-only mode always emits the placeholder so card headers line up.
+  let checkbox;
+  if (interactive && routable) {
+    const checked = selectedOrderIds.has(id) ? 'checked' : '';
+    checkbox = `<label class="order-select" aria-label="Select order ${escapeHtml(String(num))}">
+                  <input type="checkbox" class="order-select-checkbox" data-order-id="${escapeHtml(id)}" ${checked}>
+                </label>`;
+  } else {
+    checkbox = `<span class="order-select order-select-placeholder" aria-hidden="true"></span>`;
+  }
 
   const statusBadge = deliveryStatus
       ? `<span class="order-status order-status-${deliveryStatus.toLowerCase()}" title="Delivery: ${deliveryStatus}">${deliveryStatus}</span>`
@@ -256,10 +283,6 @@ async function handleGenerateRoute() {
 
   isGeneratingRoute = false;
 
-  // Special case: 409 "route already active" — show a modal that lets the
-  // driver navigate to the existing route. The safer-cancel UX choice means
-  // there's no "throw away the active route and replace" button here; to
-  // cancel, the driver must go to the Route tab.
   if (result && result.__apiError && result.status === 409) {
     const activeRouteId = result.body
         && result.body.details
@@ -283,19 +306,12 @@ async function handleGenerateRoute() {
     return;
   }
 
-  // Success.
   applyRouteToView(result);
   selectedOrderIds.clear();
   loadPage('route');
 }
 
-/**
- * Build a small modal informing the driver that a route is already active.
- * Single action — navigate to the Route tab; cancellation happens there
- * with a separate confirmation step.
- */
 function showActiveRouteConflictModal(activeRouteId) {
-  // Remove any existing modal first (in case the driver triggered twice).
   document.querySelectorAll('.kiosk-modal-backdrop').forEach((el) => el.remove());
 
   const backdrop = document.createElement('div');
@@ -325,31 +341,20 @@ function showActiveRouteConflictModal(activeRouteId) {
 
 
 // ============================================================================
-// Route page — active-route fetch, header, stops, lifecycle actions
+// Route page — main column (active route header / map / stops)
 // ============================================================================
 
-// Last fetched active route. Used by lifecycle handlers so they don't have
-// to refetch just to know the id/status. Cleared when the route's no longer
-// active or when navigating away.
 let currentRoute = null;
 
-/**
- * Called from pageInitializers.route. Fetches the active route from the
- * backend, then renders the header + stops + drops the geometry on the map.
- * If no active route exists, renders the empty state.
- */
 async function refreshActiveRoute() {
   const route = await window.celtechApi.getActiveRoute();
   applyRouteToView(route);
+  // Keep the right-side orders panel fresh after any lifecycle action — a
+  // Mark Delivered shifts an order out of routable, a Cancel can shift
+  // many BACK into routable, etc. Cheap (one fetch).
+  renderRoutePageOrders();
 }
 
-/**
- * Render whatever the current view of the active route should be. Called
- * after the active fetch, after a Generate succeeds (no need to re-fetch
- * what we just got back), and after every lifecycle action.
- *
- * Pass null to mean "no active route — show the empty state."
- */
 function applyRouteToView(route) {
   currentRoute = route;
 
@@ -363,15 +368,10 @@ function applyRouteToView(route) {
   const stops = document.getElementById('route-stops');
   const confirmPanel = document.getElementById('route-confirm-cancel');
 
-  // If the Route partial isn't currently mounted, bail. This can happen if
-  // refreshActiveRoute resolves after the user nav'd away.
   if (!header || !stops) return;
 
-  // Always hide the cancel-confirm panel on (re)render — a fresh state means
-  // a fresh decision.
   if (confirmPanel) confirmPanel.hidden = true;
 
-  // No active route — clear map artifacts, show empty state.
   if (!route) {
     if (typeof window.celtechClearRoute === 'function') {
       window.celtechClearRoute();
@@ -383,13 +383,9 @@ function applyRouteToView(route) {
     return;
   }
 
-  // Active route — render the header + stops + map.
   if (empty) empty.hidden = true;
 
   const isTerminal = route.status === 'COMPLETED' || route.status === 'CANCELLED';
-
-  // Map: hide for terminal routes (the geometry is meaningless once done).
-  // For PLANNED / IN_PROGRESS, show and re-draw.
   if (mapWrap) mapWrap.style.display = isTerminal ? 'none' : '';
 
   if (!isTerminal) {
@@ -399,7 +395,6 @@ function applyRouteToView(route) {
     if (route.geometry && typeof window.celtechSetRoute === 'function') {
       window.celtechSetRoute(route.geometry);
     }
-    // Numbered stop markers — sequence as the visible label.
     if (Array.isArray(route.stops) && typeof window.celtechAddMarker === 'function') {
       route.stops.forEach((stop) => {
         const a = stop.address || {};
@@ -411,7 +406,6 @@ function applyRouteToView(route) {
     }
   }
 
-  // Header.
   header.hidden = false;
   headerNumber.textContent = `Route ${route.routeNumber || ''}`;
   headerStatus.textContent = route.status || '';
@@ -423,10 +417,8 @@ function applyRouteToView(route) {
   const stopCount = totals.stopCount != null ? `${totals.stopCount} stop${totals.stopCount === 1 ? '' : 's'}` : '';
   headerSummary.textContent = [stopCount, distKm, durMin].filter(Boolean).join(' · ');
 
-  // Header actions based on status.
   headerActions.innerHTML = renderHeaderActions(route);
 
-  // Stops list.
   stops.innerHTML = route.stops && route.stops.length
       ? route.stops.map((s) => renderStopCard(s, route.status)).join('')
       : `<p class="route-empty-stops">This route has no stops.</p>`;
@@ -447,7 +439,6 @@ function renderHeaderActions(route) {
       <button class="btn-link-danger" type="button" data-route-action="cancel-prompt">Cancel</button>
     `;
   }
-  // Terminal — COMPLETED or CANCELLED. Offer a path back to planning a new one.
   return `
     <button class="btn-secondary" type="button" data-page="orders">Plan Another Route</button>
   `;
@@ -471,10 +462,6 @@ function renderStopCard(stop, routeStatus) {
       ? `<div class="stop-instructions">📋 ${escapeHtml(stop.deliveryInstructions)}</div>`
       : '';
 
-  // Mark Delivered button — only when this stop is still actionable, AND
-  // the route is in a state where action makes sense. For now: show on
-  // IN_PROGRESS routes for stops that haven't reached a terminal delivery
-  // state. (Round B+ scope; Skip/Failed are explicitly deferred.)
   const stopIsTerminal = status === 'DELIVERED' || status === 'FAILED' || status === 'SKIPPED';
   const showMarkDelivered = routeStatus === 'IN_PROGRESS' && !stopIsTerminal;
   const markBtn = showMarkDelivered
@@ -503,9 +490,6 @@ function renderStopCard(stop, routeStatus) {
   `;
 }
 
-/**
- * Click handler on the Route tab. Single delegated listener.
- */
 function onRoutePageClick(event) {
   const actionTarget = event.target.closest('[data-route-action]');
   if (actionTarget) {
@@ -525,7 +509,6 @@ function onRoutePageClick(event) {
     return;
   }
 
-  // Cancel confirm panel buttons.
   if (event.target.id === 'route-confirm-cancel-no') {
     const panel = document.getElementById('route-confirm-cancel');
     if (panel) panel.hidden = true;
@@ -544,6 +527,7 @@ async function handleRouteStart() {
     return;
   }
   applyRouteToView(updated);
+  renderRoutePageOrders();
 }
 
 async function handleRouteComplete() {
@@ -554,6 +538,7 @@ async function handleRouteComplete() {
     return;
   }
   applyRouteToView(updated);
+  renderRoutePageOrders();
 }
 
 function showCancelConfirm() {
@@ -571,10 +556,6 @@ async function handleRouteCancel() {
     alert('Could not cancel route. Try again.');
     return;
   }
-  // After cancel, the route is CANCELLED — but it's no longer "the active
-  // route" from the server's perspective. Refresh from /active so the UI
-  // accurately reflects "no active route" instead of showing the cancelled
-  // one with stale data.
   await refreshActiveRoute();
 }
 
@@ -593,10 +574,44 @@ async function handleMarkDelivered(deliveryId, btnEl) {
     }
     return;
   }
-  // Re-fetch the active route so the UI reflects the new delivery status.
-  // Doing a full refresh (rather than mutating in place) is cheaper to reason
-  // about and avoids drift if the backend's view diverges from ours.
   await refreshActiveRoute();
+}
+
+
+// ============================================================================
+// Route page — right-side orders reference panel
+//
+// Independent of the Orders tab. Renders ONLY routable orders, in read-only
+// mode (no checkboxes, no Select All, no Generate button). Refreshed on
+// initial Route tab mount and after every route-side lifecycle action.
+// ============================================================================
+
+async function renderRoutePageOrders() {
+  const list = document.getElementById('route-orders-list');
+  if (!list) return;
+
+  const orders = await window.celtechApi.fetchOrders();
+
+  if (orders === null) {
+    list.innerHTML = `<p class="error">Could not load orders.</p>`;
+    return;
+  }
+
+  if (!Array.isArray(orders) || orders.length === 0) {
+    list.innerHTML = `<p class="orders-empty">No orders available.</p>`;
+    return;
+  }
+
+  // Routable-only filter — the panel is "what could go on a NEW route,"
+  // so assigned/delivered/etc. don't belong here.
+  const routable = orders.filter(isRoutable);
+
+  if (routable.length === 0) {
+    list.innerHTML = `<p class="orders-empty">No orders available to route.</p>`;
+    return;
+  }
+
+  list.innerHTML = routable.map((o) => renderOrderCard(o, 'readonly')).join('');
 }
 
 

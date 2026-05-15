@@ -233,16 +233,14 @@ body {
 }
 
 /*
- * IMPORTANT: this rule used to zap padding on any page hosting .map-container.
- * That made sense when the Route tab was JUST a map. After Round B+, .route-page
- * holds a header + map + stops list, and stripping the page padding made the
- * whole layout flush to the edges. We keep this rule scoped to pages that ARE
- * just a map (none currently — kept here for the case where you build a
- * full-bleed-map page later).
+ * Note: an earlier version had a rule here that zapped padding for any
+ * page hosting .map-container, designed for the original Route tab when
+ * it was JUST a map. The current Route tab is a two-column layout
+ * (route-main + route-orders), and the Orders tab doesn't have a map at
+ * all, so that special case no longer applies and the standard .main
+ * padding is correct for every page. If you ever build a full-bleed map
+ * page, you can re-add a scoped rule for that specific page.
  */
-.main:has(> .page-content > .map-container:only-child) {
-  padding: 0;
-}
 
 
 /* ============================================================================
@@ -623,9 +621,13 @@ body {
   display: flex;
   flex-direction: column;
   min-height: 100%;
-  width: var(--orders-width);
-  min-width: var(--orders-min-width);
-  margin-left: auto;             /* right-align inside .main */
+  /*
+   * Full-width on its own tab. The compact card variant from this
+   * stylesheet still applies (single-column list, customer-name focus,
+   * line items hidden) — the cards are visually identical here and in
+   * the Route tab's right-side panel, just laid out across the full
+   * page width here.
+   */
 }
 
 .orders-page h1 {
@@ -680,17 +682,16 @@ body {
 }
 
 /*
- * Single-column list (no grid). At 25% width the cards each take the full
- * available width of the orders panel.
+ * Responsive grid on the Orders tab — cards fill the row, wrapping as needed.
+ * Each card has a comfortable minimum width so it stays scannable.
  *
- * Bottom padding leaves room for the sticky action bar so the last card
- * isn't hidden behind it.
+ * Bottom padding leaves room for the sticky action bar.
  */
 .orders-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  padding-bottom: 110px;        /* bar is taller in the stacked variant */
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: var(--space-4);
+  padding-bottom: 110px;
 }
 
 /* ---- Compact order card ---- */
@@ -821,35 +822,36 @@ body {
 
 /* ---- Sticky action bar ----
  *
- * At 25% width the bar's contents stack: count text on top, full-width
- * button below. Looks much tidier than trying to cram both side-by-side.
+ * Horizontal layout: count text on the left, Generate Route button on the
+ * right. Sits at the bottom of the Orders tab via position: sticky.
  */
 .orders-action-bar {
   position: sticky;
   bottom: 0;
   margin-top: auto;
   display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: var(--space-2);
-  padding: 14px var(--space-4);
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: 14px var(--space-5);
   background: rgba(26, 36, 21, 0.95);
   border-top: 2px solid var(--color-border);
   box-shadow: var(--shadow-status);
-  /* Stretch to the orders-panel edges by negative-margin'ing past .main padding */
-  margin-left: calc(-1 * var(--space-4));
-  margin-right: calc(-1 * var(--space-4));
+  /* Stretch to the .main edges past its padding */
+  margin-left: calc(-1 * var(--space-8));
+  margin-right: calc(-1 * var(--space-8));
+  padding-left: var(--space-8);
+  padding-right: var(--space-8);
 }
 
 .orders-action-count {
   color: var(--color-text-soft);
-  font-size: var(--font-md);
+  font-size: var(--font-base);
   font-style: italic;
-  text-align: center;
 }
 
 .orders-generate-btn {
-  padding: var(--space-3) var(--space-6);
+  padding: var(--space-3) var(--space-7);
   background: linear-gradient(135deg, var(--color-border) 0%, var(--color-border-strong) 100%);
   color: var(--color-text);
   border: 2px solid var(--color-accent-gold);
@@ -862,7 +864,6 @@ body {
   box-shadow: var(--shadow-glow-gold-strong);
   transition: all var(--transition);
   -webkit-tap-highlight-color: transparent;
-  width: 100%;
 }
 
 .orders-generate-btn:active:not(:disabled) {
@@ -892,16 +893,67 @@ body {
 
 /* ----- 5c. Route -----
  *
- * Header / map / stops list / inline cancel-confirm. Map gets a fixed
- * height (--route-map-height) so #map { height: 100% } resolves correctly
- * to a real pixel value. This is the fix for the map-not-appearing bug.
+ * Two-column layout:
+ *   .route-main   — left column: header, map, stops, cancel-confirm
+ *   .route-orders — right column: routable orders, read-only reference
+ *
+ * The right column width is controlled by the same --orders-width token
+ * that the Orders tab uses (when the Orders tab is full-width, that token
+ * is unused there but still defines this panel's width).
+ *
+ * Map gets a fixed height (--route-map-height) so #map { height: 100% }
+ * resolves correctly. This is the fix for the map-not-appearing bug.
  */
 
 .route-page {
+  display: grid;
+  grid-template-columns: 1fr var(--orders-width);
+  gap: var(--space-5);
+  min-height: 100%;
+}
+
+/* Left column — the main route view */
+.route-main {
   display: flex;
   flex-direction: column;
-  min-height: 100%;
   gap: var(--space-4);
+  min-width: 0;                  /* prevents grid blowing out on long content */
+}
+
+/* Right column — orders reference panel */
+.route-orders {
+  display: flex;
+  flex-direction: column;
+  min-width: var(--orders-min-width);
+  padding: var(--space-4);
+  background: var(--color-surface-2-soft);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  /* Sticky so the orders stay visible while the left column scrolls */
+  position: sticky;
+  top: 0;
+  align-self: start;
+  max-height: calc(100vh - var(--space-8) * 2);
+  overflow-y: auto;
+}
+
+.route-orders-title {
+  color: var(--color-accent-gold);
+  font-size: var(--font-2xl);
+  margin: 0 0 var(--space-1);
+}
+
+.route-orders-subtitle {
+  color: var(--color-text-muted);
+  font-size: var(--font-md);
+  font-style: italic;
+  margin: 0 0 var(--space-4);
+}
+
+.route-orders-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
 }
 
 /* ---- Header bar ---- */
