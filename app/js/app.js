@@ -8,10 +8,6 @@ const navButtons = document.querySelectorAll('.nav-btn');
 
 const pageInitializers = {
   route: () => {
-    // The map module's celtechSetRoute / celtechAddMarker queue calls made
-    // before the map is built, so this ordering is safe:
-    //   1. initMap        — async; buildMap will run when the Google API loads
-    //   2. refreshActive  — fetches /routes/active, paints header + map + stops
     if (typeof window.celtechInitMap === 'function') {
       window.celtechInitMap();
     } else {
@@ -54,9 +50,7 @@ navButtons.forEach(button => {
   });
 });
 
-// Event delegation for in-content navigation (handles elements with data-page
-// inside loaded partials, like the Start Your Journey button on home and the
-// Go to Orders button on the empty Route tab).
+// Event delegation for in-content navigation
 contentDiv.addEventListener('click', (event) => {
   const target = event.target.closest('[data-page]');
   if (target && contentDiv.contains(target)) {
@@ -67,7 +61,7 @@ contentDiv.addEventListener('click', (event) => {
 
 
 // ============================================================================
-// Shared helpers — what counts as routable
+// Shared helpers
 // ============================================================================
 
 function isRoutable(order) {
@@ -79,10 +73,6 @@ function isRoutable(order) {
 
 // ============================================================================
 // Orders page — listing, selection, Generate Route action
-//
-// Filtered to routable orders only (PAID + null/PENDING delivery). The
-// full unfiltered list is no longer rendered; the Orders tab is now
-// purely the "what could I put on a new route right now" view.
 // ============================================================================
 
 let selectedOrderIds = new Set();
@@ -109,13 +99,9 @@ async function renderOrdersList() {
     return;
   }
 
-  // Filter to routable only. The unfiltered list is intentionally discarded —
-  // anything assigned/delivered/etc. doesn't belong on a "plan a route" view.
   const routable = all.filter(isRoutable);
   lastFetchedOrders = routable;
 
-  // Prune selected ids that no longer appear (delivered/assigned elsewhere
-  // while the driver was on a different tab).
   const visibleIds = new Set(routable.map((o) => o.id));
   for (const id of [...selectedOrderIds]) {
     if (!visibleIds.has(id)) selectedOrderIds.delete(id);
@@ -131,10 +117,6 @@ async function renderOrdersList() {
   updateOrdersControls();
 }
 
-/**
- * Render a single order as a card. All cards here are routable (the list
- * is pre-filtered in renderOrdersList), so every card gets a checkbox.
- */
 function renderOrderCard(order) {
   const id = order.id || '';
   const num = order.orderNumber || '—';
@@ -165,9 +147,6 @@ function renderOrderCard(order) {
                       <input type="checkbox" class="order-select-checkbox" data-order-id="${escapeHtml(id)}" ${checked}>
                     </label>`;
 
-  // Show the more specific status when available — delivery state for
-  // PENDING; financial state otherwise. (Both are still possible here:
-  // a routable order can have null deliveryStatus or PENDING.)
   const statusBadge = deliveryStatus
       ? `<span class="order-status order-status-${deliveryStatus.toLowerCase()}" title="Delivery: ${deliveryStatus}">${deliveryStatus}</span>`
       : `<span class="order-status order-status-${orderStatus.toLowerCase()}">${orderStatus}</span>`;
@@ -199,7 +178,7 @@ function updateOrdersControls() {
   const count = document.getElementById('orders-action-count');
   const generate = document.getElementById('orders-generate-btn');
 
-  const routableCount = lastFetchedOrders.length;     // already filtered
+  const routableCount = lastFetchedOrders.length;
   const selectedCount = selectedOrderIds.size;
 
   if (selectAll) {
@@ -305,12 +284,43 @@ async function handleGenerateRoute() {
   loadPage('route');
 }
 
-function showActiveRouteConflictModal(activeRouteId) {
+
+// ============================================================================
+// Modals — active-route conflict, cancel-confirm
+//
+// Both use the .kiosk-modal-backdrop pattern. Only one modal at a time —
+// any existing backdrop is removed before opening a new one.
+// ============================================================================
+
+function openModal(html, onAction) {
   document.querySelectorAll('.kiosk-modal-backdrop').forEach((el) => el.remove());
 
   const backdrop = document.createElement('div');
   backdrop.className = 'kiosk-modal-backdrop';
-  backdrop.innerHTML = `
+  backdrop.innerHTML = html;
+  document.body.appendChild(backdrop);
+
+  backdrop.addEventListener('click', (e) => {
+    const action = e.target.dataset && e.target.dataset.modalAction;
+    // Backdrop click (outside the modal box) = dismiss
+    if (!action && e.target === backdrop) {
+      backdrop.remove();
+      return;
+    }
+    if (!action) return;
+    if (action === 'dismiss') {
+      backdrop.remove();
+      return;
+    }
+    // Hand the action to the caller so it can decide whether to close.
+    if (typeof onAction === 'function') {
+      onAction(action, backdrop);
+    }
+  });
+}
+
+function showActiveRouteConflictModal(activeRouteId) {
+  openModal(`
     <div class="kiosk-modal" role="dialog" aria-labelledby="kiosk-modal-title">
       <h3 id="kiosk-modal-title">You already have an active route</h3>
       <p>You can have one active route at a time. Open it to continue, complete it, or cancel it.</p>
@@ -319,23 +329,35 @@ function showActiveRouteConflictModal(activeRouteId) {
         <button class="btn-primary" type="button" data-modal-action="open-route">Open Active Route</button>
       </div>
     </div>
-  `;
-  document.body.appendChild(backdrop);
-
-  backdrop.addEventListener('click', (e) => {
-    const action = e.target.dataset && e.target.dataset.modalAction;
-    if (action === 'dismiss' || e.target === backdrop) {
-      backdrop.remove();
-    } else if (action === 'open-route') {
+  `, (action, backdrop) => {
+    if (action === 'open-route') {
       backdrop.remove();
       loadPage('route');
     }
   });
 }
 
+function showCancelRouteModal() {
+  openModal(`
+    <div class="kiosk-modal" role="dialog" aria-labelledby="kiosk-modal-title">
+      <h3 id="kiosk-modal-title">Cancel this route?</h3>
+      <p>All deliveries on this route will be released back to PENDING and become available to add to a new route. This can't be undone.</p>
+      <div class="kiosk-modal-actions">
+        <button class="btn-secondary" type="button" data-modal-action="dismiss">Keep Route</button>
+        <button class="btn-danger" type="button" data-modal-action="confirm-cancel">Cancel Route</button>
+      </div>
+    </div>
+  `, (action, backdrop) => {
+    if (action === 'confirm-cancel') {
+      backdrop.remove();
+      handleRouteCancel();
+    }
+  });
+}
+
 
 // ============================================================================
-// Route page — fetch active, render header + map + stops
+// Route page — status bar + map + next-stop overlay
 // ============================================================================
 
 let currentRoute = null;
@@ -346,57 +368,78 @@ async function refreshActiveRoute() {
 }
 
 /**
- * Toggles between the empty state (no active route) and the two-column
- * grid (active route present), then paints the route data into the grid.
+ * Find the next stop that still needs action. A stop is "actionable" while
+ * its status is not terminal (DELIVERED/FAILED/SKIPPED). Stops are sorted
+ * by sequence so we get the first undelivered one in delivery order.
+ */
+function getNextStop(route) {
+  if (!route || !Array.isArray(route.stops) || route.stops.length === 0) return null;
+  const sorted = [...route.stops].sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
+  return sorted.find((s) => {
+    const st = s.status || 'PENDING';
+    return st !== 'DELIVERED' && st !== 'FAILED' && st !== 'SKIPPED';
+  }) || null;
+}
+
+/**
+ * Paints the Route page. Three concerns:
  *
- * - #route-empty: spans the page when no active route exists
- * - #route-grid:  the two-column layout (.route-main + .route-stops-panel)
- *
- * The cancel-confirm panel is always reset to hidden on (re)render — a
- * fresh state means a fresh decision.
+ *   1. Status bar contents — either the "No active route" empty form or
+ *      the route's number/status/summary + appropriate action buttons.
+ *   2. Map artifacts — clear and redraw geometry + stop markers when
+ *      there's an active non-terminal route; clear them otherwise.
+ *   3. Next-stop overlay — show only when the route is IN_PROGRESS AND
+ *      there's a still-actionable stop.
  */
 function applyRouteToView(route) {
   currentRoute = route;
 
-  const empty = document.getElementById('route-empty');
-  const grid = document.getElementById('route-grid');
-  const confirmPanel = document.getElementById('route-confirm-cancel');
+  const statusInfo = document.getElementById('route-status-info');
+  const statusEmpty = document.getElementById('route-status-empty');
+  const statusActions = document.getElementById('route-status-actions');
 
-  if (!grid || !empty) return;       // partial not currently mounted
+  // If the route partial isn't mounted (the user navigated away during
+  // an in-flight fetch), there's nothing to paint.
+  if (!statusInfo || !statusEmpty) return;
 
-  if (confirmPanel) confirmPanel.hidden = true;
-
-  // No active route — show empty state, hide grid.
+  // ---- No active route ----
   if (!route) {
+    statusInfo.hidden = true;
+    statusEmpty.hidden = false;
+    statusActions.innerHTML = '';
     if (typeof window.celtechClearRoute === 'function') {
       window.celtechClearRoute();
     }
-    empty.hidden = false;
-    grid.hidden = true;
+    hideNextStopOverlay();
     return;
   }
 
-  // Active route — show grid, hide empty.
-  empty.hidden = true;
-  grid.hidden = false;
+  // ---- Active route — status bar ----
+  statusEmpty.hidden = true;
+  statusInfo.hidden = false;
 
-  const header = document.getElementById('route-header');
-  const headerNumber = document.getElementById('route-header-number');
-  const headerStatus = document.getElementById('route-header-status');
-  const headerSummary = document.getElementById('route-header-summary');
-  const headerActions = document.getElementById('route-header-actions');
-  const mapWrap = document.getElementById('route-map-wrapper');
-  const stops = document.getElementById('route-stops');
+  const number = document.getElementById('route-status-number');
+  const pill = document.getElementById('route-status-pill');
+  const summary = document.getElementById('route-status-summary');
 
+  number.textContent = `Route ${route.routeNumber || ''}`;
+  pill.textContent = route.status || '';
+  pill.className = `route-status-pill route-status-pill-${(route.status || '').toLowerCase()}`;
+
+  const totals = route.totals || {};
+  const distKm = totals.distanceMeters != null ? (totals.distanceMeters / 1000).toFixed(1) + ' km' : '';
+  const durMin = totals.durationSeconds != null ? Math.round(totals.durationSeconds / 60) + ' min' : '';
+  const stopCount = totals.stopCount != null ? `${totals.stopCount} stop${totals.stopCount === 1 ? '' : 's'}` : '';
+  summary.textContent = [stopCount, distKm, durMin].filter(Boolean).join(' · ');
+
+  statusActions.innerHTML = renderStatusActions(route);
+
+  // ---- Map artifacts ----
   const isTerminal = route.status === 'COMPLETED' || route.status === 'CANCELLED';
-
-  // Map: hide for terminal routes (the geometry is meaningless once done).
-  if (mapWrap) mapWrap.style.display = isTerminal ? 'none' : '';
-
+  if (typeof window.celtechClearRoute === 'function') {
+    window.celtechClearRoute();
+  }
   if (!isTerminal) {
-    if (typeof window.celtechClearRoute === 'function') {
-      window.celtechClearRoute();
-    }
     if (route.geometry && typeof window.celtechSetRoute === 'function') {
       window.celtechSetRoute(route.geometry);
     }
@@ -411,41 +454,20 @@ function applyRouteToView(route) {
     }
   }
 
-  // Header.
-  headerNumber.textContent = `Route ${route.routeNumber || ''}`;
-  headerStatus.textContent = route.status || '';
-  headerStatus.className = `route-header-status route-header-status-${(route.status || '').toLowerCase()}`;
-
-  const totals = route.totals || {};
-  const distKm = totals.distanceMeters != null ? (totals.distanceMeters / 1000).toFixed(1) + ' km' : '';
-  const durMin = totals.durationSeconds != null ? Math.round(totals.durationSeconds / 60) + ' min' : '';
-  const stopCount = totals.stopCount != null ? `${totals.stopCount} stop${totals.stopCount === 1 ? '' : 's'}` : '';
-  headerSummary.textContent = [stopCount, distKm, durMin].filter(Boolean).join(' · ');
-
-  headerActions.innerHTML = renderHeaderActions(route);
-
-  // Stops list — sequence order. The DTO already returns them sorted by
-  // sequence, but sort defensively in case the server's ordering shifts.
-  const sortedStops = Array.isArray(route.stops)
-      ? [...route.stops].sort((a, b) => (a.sequence || 0) - (b.sequence || 0))
-      : [];
-
-  stops.innerHTML = sortedStops.length
-      ? sortedStops.map((s) => renderStopCard(s, route.status)).join('')
-      : `<p class="route-empty-stops">This route has no stops.</p>`;
+  // ---- Next-stop overlay ----
+  // Only shown when the route is IN_PROGRESS (otherwise there's no Mark
+  // Delivered action to take) AND there's still an actionable stop.
+  if (route.status === 'IN_PROGRESS') {
+    const next = getNextStop(route);
+    if (next) showNextStopOverlay(next);
+    else hideNextStopOverlay();
+  } else {
+    hideNextStopOverlay();
+  }
 }
 
-/**
- * Header action buttons depending on route status.
- *
- * Cancel is a .btn-secondary (outlined), not a .btn-link-danger. The link
- * style looked unbalanced next to the gold-bordered primary button — the
- * outlined secondary reads as "this is a button, but a less prominent one"
- * which matches its role.
- */
-function renderHeaderActions(route) {
+function renderStatusActions(route) {
   const status = route.status;
-
   if (status === 'PLANNED') {
     return `
       <button class="btn-primary" type="button" data-route-action="start">Start Route</button>
@@ -458,84 +480,101 @@ function renderHeaderActions(route) {
       <button class="btn-secondary" type="button" data-route-action="cancel-prompt">Cancel</button>
     `;
   }
-  // Terminal — COMPLETED or CANCELLED. Offer a path back to planning a new one.
+  // COMPLETED / CANCELLED — terminal states.
   return `
-    <button class="btn-secondary" type="button" data-page="orders">Plan Another Route</button>
+    <button class="btn-primary" type="button" data-page="orders">Plan Another Route</button>
   `;
 }
 
-function renderStopCard(stop, routeStatus) {
-  const seq = stop.sequence != null ? String(stop.sequence) : '?';
-  const customer = escapeHtml(stop.customerName || 'Unknown customer');
-  const phone = escapeHtml(stop.customerPhone || '');
-  const deliveryId = stop.deliveryId || '';
-  const status = stop.status || 'PENDING';
+/**
+ * Populate the bottom-left overlay with the given stop. Resets to the
+ * collapsed view on each call (a new "current" stop shouldn't inherit
+ * the previous one's expansion state).
+ */
+function showNextStopOverlay(stop) {
+  const overlay = document.getElementById('next-stop-overlay');
+  const seq = document.getElementById('next-stop-seq');
+  const customerName = document.getElementById('next-stop-customer-name');
+  const addrShort = document.getElementById('next-stop-address-short');
+  const details = document.getElementById('next-stop-details');
+  const phone = document.getElementById('next-stop-phone');
+  const addrFull = document.getElementById('next-stop-address-full');
+  const instructions = document.getElementById('next-stop-instructions');
+  const markBtn = document.getElementById('next-stop-mark-btn');
+
+  if (!overlay) return;
+
+  seq.textContent = stop.sequence != null ? String(stop.sequence) : '?';
+  customerName.textContent = stop.customerName || 'Unknown customer';
 
   const addr = stop.address || {};
-  const addrLine1 = escapeHtml([addr.street1, addr.street2].filter(Boolean).join(', ') || '—');
-  const addrLine2 = escapeHtml(
-      [addr.city, addr.state].filter(Boolean).join(', ') +
-      (addr.zip ? ` ${addr.zip}` : '')
-  );
+  const cityState = [addr.city, addr.state].filter(Boolean).join(', ')
+      + (addr.zip ? ` ${addr.zip}` : '');
+  addrShort.textContent = cityState || '—';
 
-  const instructions = stop.deliveryInstructions
-      ? `<div class="stop-instructions">📋 ${escapeHtml(stop.deliveryInstructions)}</div>`
-      : '';
+  // Expanded view content
+  phone.textContent = stop.customerPhone || '';
+  phone.style.display = stop.customerPhone ? '' : 'none';
 
-  const stopIsTerminal = status === 'DELIVERED' || status === 'FAILED' || status === 'SKIPPED';
-  const showMarkDelivered = routeStatus === 'IN_PROGRESS' && !stopIsTerminal;
-  const markBtn = showMarkDelivered
-      ? `<button class="btn-primary stop-mark-btn" type="button"
-                 data-stop-action="mark-delivered"
-                 data-delivery-id="${escapeHtml(deliveryId)}">Mark Delivered</button>`
-      : '';
+  const fullAddr = [addr.street1, addr.street2].filter(Boolean).join(', ');
+  addrFull.textContent = fullAddr + (fullAddr && cityState ? ' · ' : '') + cityState;
 
-  return `
-    <div class="stop-card stop-card-${status.toLowerCase()}" data-delivery-id="${escapeHtml(deliveryId)}">
-      <div class="stop-card-header">
-        <span class="stop-seq">${seq}</span>
-        <div class="stop-customer">
-          <div class="stop-customer-name">${customer}</div>
-          ${phone ? `<div class="stop-customer-phone">${phone}</div>` : ''}
-        </div>
-        <span class="stop-status stop-status-${status.toLowerCase()}">${escapeHtml(status)}</span>
-      </div>
-      <div class="stop-address">
-        <div>${addrLine1}</div>
-        <div>${addrLine2}</div>
-      </div>
-      ${instructions}
-      ${markBtn ? `<div class="stop-actions">${markBtn}</div>` : ''}
-    </div>
-  `;
+  if (stop.deliveryInstructions) {
+    instructions.textContent = `📋 ${stop.deliveryInstructions}`;
+    instructions.hidden = false;
+  } else {
+    instructions.textContent = '';
+    instructions.hidden = true;
+  }
+
+  // Mark Delivered button — carries the delivery id and is re-enabled
+  // (in case the previous stop's mark put it in a "Marking…" state).
+  markBtn.dataset.deliveryId = stop.deliveryId || '';
+  markBtn.disabled = false;
+  markBtn.textContent = 'Mark Delivered';
+
+  // Always start collapsed for a freshly-shown stop.
+  details.hidden = true;
+  overlay.classList.remove('next-stop-overlay-expanded');
+  overlay.hidden = false;
+}
+
+function hideNextStopOverlay() {
+  const overlay = document.getElementById('next-stop-overlay');
+  if (overlay) overlay.hidden = true;
+}
+
+function toggleNextStopExpansion() {
+  const overlay = document.getElementById('next-stop-overlay');
+  const details = document.getElementById('next-stop-details');
+  if (!overlay || !details) return;
+  const willExpand = details.hidden;
+  details.hidden = !willExpand;
+  overlay.classList.toggle('next-stop-overlay-expanded', willExpand);
 }
 
 function onRoutePageClick(event) {
+  // Status bar action buttons
   const actionTarget = event.target.closest('[data-route-action]');
   if (actionTarget) {
     const action = actionTarget.dataset.routeAction;
     if (action === 'start') return handleRouteStart();
     if (action === 'complete') return handleRouteComplete();
-    if (action === 'cancel-prompt') return showCancelConfirm();
+    if (action === 'cancel-prompt') return showCancelRouteModal();
     return;
   }
 
+  // Overlay actions
   const stopAction = event.target.closest('[data-stop-action]');
   if (stopAction) {
     const action = stopAction.dataset.stopAction;
     if (action === 'mark-delivered') {
       return handleMarkDelivered(stopAction.dataset.deliveryId, stopAction);
     }
-    return;
-  }
-
-  if (event.target.id === 'route-confirm-cancel-no') {
-    const panel = document.getElementById('route-confirm-cancel');
-    if (panel) panel.hidden = true;
-    return;
-  }
-  if (event.target.id === 'route-confirm-cancel-yes') {
-    return handleRouteCancel();
+    if (action === 'toggle-expand') {
+      // Tap on the toggle button anywhere in the body — flip expansion.
+      return toggleNextStopExpansion();
+    }
   }
 }
 
@@ -559,14 +598,6 @@ async function handleRouteComplete() {
   applyRouteToView(updated);
 }
 
-function showCancelConfirm() {
-  const panel = document.getElementById('route-confirm-cancel');
-  if (panel) {
-    panel.hidden = false;
-    panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }
-}
-
 async function handleRouteCancel() {
   if (!currentRoute) return;
   const updated = await window.celtechApi.cancelRoute(currentRoute.id);
@@ -574,7 +605,7 @@ async function handleRouteCancel() {
     alert('Could not cancel route. Try again.');
     return;
   }
-  // After cancel, no route is active — refresh from /active so the UI
+  // After cancel, no route is active. Refresh from /active so the UI
   // accurately shows the empty state instead of the cancelled route.
   await refreshActiveRoute();
 }
@@ -594,6 +625,8 @@ async function handleMarkDelivered(deliveryId, btnEl) {
     }
     return;
   }
+  // Re-fetch the active route so applyRouteToView picks the new
+  // "next stop" — or hides the overlay if everything's done.
   await refreshActiveRoute();
 }
 

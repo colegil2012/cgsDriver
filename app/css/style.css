@@ -112,14 +112,11 @@
   --orders-min-width: 280px;      /* below this, the cards stop being readable */
 
   /*
-   * Right-side stops panel on the Route tab. minmax() ensures the panel
-   * gets at least 280px (so stop cards stay readable) but no more than
-   * 38% of the page (so the map keeps useful real estate). On a narrow
-   * 7" kiosk the panel will sit at the 280px floor; on wider screens it
-   * proportionally grows.
+   * Route page: no width/height tokens needed. The map fills the flex
+   * stage between the status bar and the bottom of .main, and the
+   * bottom-left next-stop overlay is fixed at 320px wide (small enough
+   * to leave the map mostly unobscured on a 7" kiosk).
    */
-  --route-panel-width: minmax(280px, 38%);
-  --route-map-height: 480px;      /* explicit so #map gets a real height */
   --modal-max-width: 480px;
 
   /* ---- Typography ---- */
@@ -253,15 +250,15 @@ body {
 }
 
 /*
- * Note: an earlier version had a rule here that zapped padding for any
- * page hosting .map-container, designed for the original Route tab when
- * it was JUST a map. The current Route tab is a two-column layout
- * (.route-main on the left + .route-stops-panel on the right), and the
- * Orders tab doesn't have a map at all, so that special case no longer
- * applies and the standard .main padding is correct for every page. If
- * you ever build a full-bleed map page, you can re-add a scoped rule
- * for that specific page.
+ * The Route page is full-bleed map below a thin status bar. To pull
+ * that off, .main needs to drop its padding so the page content
+ * stretches edge-to-edge. Scoped strictly to .route-page so it can't
+ * accidentally affect other pages with a map (none currently, but
+ * future-proof).
  */
+.main:has(> .route-page) {
+  padding: 0;
+}
 
 
 /* ============================================================================
@@ -364,7 +361,7 @@ body {
 
 .order-status,
 .stop-status,
-.route-header-status {
+.route-status-pill {
   font-size: var(--font-xs);
   text-transform: uppercase;
   letter-spacing: 1px;
@@ -377,7 +374,7 @@ body {
 
 .order-status-paid,
 .stop-status-pending,
-.route-header-status-planned {
+.route-status-pill-planned {
   color: var(--color-accent-gold);
   border-color: var(--color-accent-gold);
   background: var(--color-accent-gold-tint);
@@ -400,13 +397,13 @@ body {
 
 .order-status-delivered,
 .stop-status-delivered,
-.route-header-status-completed {
+.route-status-pill-completed {
   color: var(--color-accent-green);
   border-color: var(--color-accent-green);
   background: var(--color-accent-green-tint-strong);
 }
 
-.route-header-status-in_progress {
+.route-status-pill-in_progress {
   color: var(--color-text-soft);
   border-color: var(--color-accent-green);
   background: rgba(168, 212, 155, 0.2);
@@ -418,7 +415,7 @@ body {
 .order-status-skipped,
 .stop-status-failed,
 .stop-status-skipped,
-.route-header-status-cancelled {
+.route-status-pill-cancelled {
   color: var(--color-danger-soft);
   border-color: var(--color-danger);
   background: var(--color-danger-tint);
@@ -914,90 +911,43 @@ body {
 
 /* ----- 5c. Route -----
  *
- * Layout:
- *   .route-page  — outer container
- *     #route-empty  — full-page empty state when no active route
- *     #route-grid   — two-column grid (left: route, right: stops)
- *       .route-main          — header + map + cancel-confirm
- *       .route-stops-panel   — sequenced stops with Mark Delivered
+ * Map-first layout. Status bar across the top, map filling everything
+ * below it. When a route is active and IN_PROGRESS, a bottom-left
+ * overlay surfaces the next undelivered stop — minimal by default,
+ * tap to expand for phone/full address/instructions.
  *
- * The right panel width is controlled by --route-panel-width, which uses
- * minmax(280px, 38%) — so on a narrow 7" kiosk it sits at the 280px
- * floor (no wrapping below the left column), on wider screens it
- * proportionally fills. This is the fix for the "panel showing full
- * width below" bug.
+ * Layout structure:
+ *   .route-page              — flex column, full height of .main
+ *     .route-status-bar      — fixed-height bar at top
+ *     .route-map-stage       — flex:1, positioning context for overlay
+ *       .map-container       — fills the stage
+ *       .next-stop-overlay   — absolute, bottom-left
  *
- * Map gets an explicit height via --route-map-height so #map { height:
- * 100% } resolves correctly — fix for the map-not-appearing bug from a
- * couple rounds back.
+ * The .main:has(> .route-page) rule above strips .main's padding so
+ * this page can stretch edge-to-edge.
  */
 
 .route-page {
-  min-height: 100%;
-}
-
-.route-grid {
-  display: grid;
-  grid-template-columns: 1fr var(--route-panel-width);
-  gap: var(--space-5);
-  align-items: start;
-}
-
-/* Left column — header, map, cancel-confirm */
-.route-main {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
-  min-width: 0;                  /* lets the column shrink below its content */
+  height: 100%;
 }
 
-/* Right column — stops in delivery order */
-.route-stops-panel {
-  display: flex;
-  flex-direction: column;
-  padding: var(--space-4);
-  background: var(--color-surface-2-soft);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl);
-  min-width: 0;
-  /*
-   * Sticky-with-scroll keeps the stops visible while the left column
-   * map sits in place. Internal overflow handles a long stop list.
-   */
-  position: sticky;
-  top: var(--space-5);
-  align-self: start;
-  max-height: calc(100vh - var(--space-8) * 2);
-  overflow-y: auto;
-}
+/* ---- Status bar ---- */
 
-.route-stops-panel-title {
-  color: var(--color-accent-gold);
-  font-size: var(--font-2xl);
-  margin: 0 0 var(--space-1);
-}
-
-.route-stops-panel-subtitle {
-  color: var(--color-text-muted);
-  font-size: var(--font-md);
-  font-style: italic;
-  margin: 0 0 var(--space-4);
-}
-
-/* ---- Header bar ---- */
-
-.route-header {
+.route-status-bar {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
-  padding: 14px 18px;
+  padding: var(--space-3) var(--space-5);
   background: var(--color-surface-2-strong);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl);
+  border-bottom: 1px solid var(--color-border);
+  min-height: 56px;             /* comfortable tap target row */
 }
 
-.route-header-info {
+.route-status-info {
   display: flex;
   align-items: baseline;
   flex-wrap: wrap;
@@ -1006,119 +956,120 @@ body {
   min-width: 0;
 }
 
-.route-header-number {
+.route-status-number {
   color: var(--color-accent-gold);
   font-weight: var(--weight-semibold);
   font-size: var(--font-xl);
   letter-spacing: 0.5px;
 }
 
-.route-header-summary {
+.route-status-pill {
+  font-size: var(--font-xs);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid;
+}
+
+.route-status-summary {
   color: var(--color-text-soft);
   font-size: var(--font-md);
 }
 
-.route-header-actions {
+.route-status-empty {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex: 1;
+}
+
+.route-status-empty-text {
+  color: var(--color-text-muted);
+  font-style: italic;
+  font-size: var(--font-base);
+}
+
+.route-status-actions {
   display: flex;
   align-items: center;
   gap: var(--space-3);
 }
 
-/* ---- Empty state ---- */
+/* ---- Map stage ---- */
 
-.route-empty {
-  padding: var(--space-8) var(--space-5);
-  text-align: center;
-  background: var(--color-surface-2-soft);
-  border: 1px dashed var(--color-border);
-  border-radius: var(--radius-xl);
-}
-
-.route-empty h2 {
-  color: var(--color-accent-gold);
-  margin: 0 0 var(--space-2);
-}
-
-.route-empty p {
-  color: var(--color-text-muted);
-  margin: 0 0 18px;
-}
-
-.route-empty-cta {
-  padding: var(--space-3) var(--space-7);
-  background: linear-gradient(135deg, var(--color-border) 0%, var(--color-border-strong) 100%);
-  color: var(--color-text);
-  border: 2px solid var(--color-accent-gold);
-  border-radius: var(--radius-lg);
-  font-family: inherit;
-  font-size: var(--font-lg);
-  cursor: pointer;
-}
-
-/* ---- Map container (Route tab) ----
- *
- * Scoped to .route-main since that's the only place the map lives now.
- * Explicit height (not min-height) so #map { height: 100% } can resolve.
- *
- * Since the stops moved to the right panel, the map can dominate the
- * left column — taller than before.
- */
-.route-main .map-container {
-  height: var(--route-map-height);
-  flex: 0 0 auto;
-  border-radius: var(--radius-xl);
-  overflow: hidden;
-}
-
-/* ---- Stop cards ----
- *
- * Each stop is a full card with sequence badge, customer block, address,
- * delivery instructions, and (when actionable) a Mark Delivered button.
- */
-
-.route-stops {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
+.route-map-stage {
+  flex: 1;
+  position: relative;
+  min-height: 0;                /* required for flex children to shrink */
 }
 
 /*
- * Stop cards live in the narrow right panel (~280-380px wide).
- * Tightened padding and indent vs. a full-width card so the address
- * and customer name have room.
+ * Override the base .map-container { height: 100% } here too — works
+ * because .route-map-stage has an explicit flex-allocated height. No
+ * extra height token needed; the stage is whatever's left after the
+ * status bar.
+ */
+.route-map-stage .map-container {
+  position: absolute;
+  inset: 0;
+  border-radius: 0;
+  overflow: hidden;
+}
+
+/* ---- Next-stop overlay ----
+ *
+ * Positioned absolute at the bottom-left of the map stage. Two views:
+ *   - collapsed: customer + city/state + Mark Delivered button
+ *   - expanded: + phone, full street address, instructions
+ *
+ * Tap on the body toggles. The Mark Delivered button is a separate
+ * element so its own tap doesn't also trigger toggle.
  */
 
-.stop-card {
-  background: var(--color-surface-2);
-  border: 2px solid var(--color-border);
+.next-stop-overlay {
+  position: absolute;
+  left: var(--space-4);
+  bottom: var(--space-4);
+  width: 320px;
+  max-width: calc(100% - var(--space-4) * 2);
+  background: var(--color-surface-1);
+  border: 2px solid var(--color-accent-gold);
   border-radius: var(--radius-xl);
-  padding: var(--space-3) var(--space-3);
-  box-shadow: var(--shadow-card);
+  box-shadow: var(--shadow-modal);
+  z-index: 50;
+  overflow: hidden;
 }
 
-.stop-card-delivered {
-  border-color: var(--color-accent-green);
-  background: rgba(168, 212, 155, 0.08);
+/* The toggle wrapper is a button so it gets proper tap/click semantics. */
+.next-stop-toggle {
+  width: 100%;
+  background: transparent;
+  border: 0;
+  padding: var(--space-3) var(--space-4);
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+  display: block;
 }
 
-.stop-card-failed,
-.stop-card-skipped {
-  border-color: var(--color-danger);
-  background: var(--color-danger-tint-soft);
-  opacity: 0.85;
+.next-stop-toggle:focus,
+.next-stop-toggle:focus-visible {
+  outline: none;
 }
 
-.stop-card-header {
+.next-stop-header {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  margin-bottom: var(--space-2);
+  gap: var(--space-3);
 }
 
-.stop-seq {
-  flex: 0 0 32px;
-  height: 32px;
-  width: 32px;
+.next-stop-seq {
+  flex: 0 0 36px;
+  height: 36px;
+  width: 36px;
   border-radius: var(--radius-circle);
   background: var(--color-accent-gold);
   color: var(--color-text-on-accent);
@@ -1126,104 +1077,85 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: var(--font-base);
+  font-size: var(--font-lg);
 }
 
-.stop-card-delivered .stop-seq {
-  background: var(--color-accent-green);
-}
-
-.stop-customer {
+.next-stop-customer {
   flex: 1;
   min-width: 0;
 }
 
-.stop-customer-name {
+.next-stop-customer-name {
   color: var(--color-text);
-  font-size: var(--font-base);
+  font-size: var(--font-lg);
   font-weight: var(--weight-medium);
-  /* Truncate overflowing names rather than wrapping awkwardly */
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.stop-customer-phone {
-  color: var(--color-text-muted);
+.next-stop-address-short {
+  color: var(--color-text-soft);
   font-size: var(--font-sm);
   margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-/*
- * Address sits below the header row (full width of the card, not
- * indented past the sequence badge — at 280px the indent ate too much
- * room). The slightly-smaller font keeps city/state/zip on one line.
- */
-.stop-address {
+.next-stop-chevron {
+  color: var(--color-text-muted);
+  font-size: var(--font-base);
+  flex: 0 0 auto;
+  transition: transform var(--transition-fast);
+}
+
+.next-stop-overlay-expanded .next-stop-chevron {
+  transform: rotate(180deg);
+}
+
+/* Expanded details. Padding-top reuses the toggle's own padding so the
+ * content sits cleanly under the header row. */
+.next-stop-details {
+  padding-top: var(--space-3);
+  margin-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
+}
+
+.next-stop-phone {
+  color: var(--color-text-soft);
+  font-size: var(--font-sm);
+  margin-bottom: var(--space-2);
+}
+
+.next-stop-address-full {
   color: var(--color-text-soft);
   font-size: var(--font-sm);
   line-height: 1.4;
   margin-bottom: var(--space-2);
 }
 
-.stop-instructions {
+.next-stop-instructions {
   color: var(--color-text-soft);
   font-size: var(--font-sm);
   padding: 6px var(--space-2);
-  margin: var(--space-2) 0;
   background: var(--color-surface-instr);
   border-left: 3px solid var(--color-accent-gold);
   border-radius: var(--radius-sm);
 }
 
-.stop-actions {
-  margin-top: var(--space-3);
-}
-
-/* Full-width Mark Delivered button at the bottom of each card — vertical
- * space is cheap in the panel, horizontal isn't. */
-.stop-mark-btn {
-  width: 100%;
-  padding: 10px var(--space-3);
-  font-size: var(--font-base);
-}
-
-.route-empty-stops {
-  text-align: center;
-  color: var(--color-text-muted);
-  font-style: italic;
-  padding: var(--space-6);
-}
-
-/* ---- Cancel confirm panel ---- */
-
-.route-confirm {
-  margin-top: var(--space-4);
-  padding: var(--space-4);
-  background: var(--color-danger-tint-soft);
-  border: 1px solid var(--color-danger);
-  border-radius: var(--radius-xl);
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.route-confirm-text strong {
-  color: var(--color-danger-soft);
-  font-size: var(--font-lg);
+/* Mark Delivered — full-width inside the overlay, separated from the
+ * toggle body by a subtle divider. Padding designed for thumb-friendly
+ * tap target (44px+ height). */
+.next-stop-mark-btn {
   display: block;
-  margin-bottom: 6px;
-}
-
-.route-confirm-text p {
-  color: var(--color-text-soft);
-  font-size: var(--font-md);
+  width: 100%;
   margin: 0;
-  line-height: 1.5;
-}
-
-.route-confirm-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-3);
+  padding: 14px var(--space-4);
+  border-radius: 0;             /* sits flush with the overlay's bottom */
+  border-left: 0;
+  border-right: 0;
+  border-bottom: 0;
+  border-top: 1px solid var(--color-accent-gold);
+  font-size: var(--font-base);
 }

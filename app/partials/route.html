@@ -1,83 +1,85 @@
 <div class="page-content route-page">
 
     <!--
-      Empty state — shown by applyRouteToView when GET /routes/active
-      returns null. Sits outside the two-column grid so it spans the
-      full page width when present (cleaner than splitting it across
-      .route-main + .route-stops).
+      Status bar across the top — thin, full width. Always visible on this
+      page; contents depend on whether there's an active route.
+
+      When no active route:
+        #route-status-info  hidden
+        #route-status-empty visible (label + Plan Route button)
+
+      When active route:
+        #route-status-info  visible (number, status pill, summary)
+        #route-status-empty hidden
+        #route-status-actions contains contextual buttons:
+          PLANNED      -> Start Route + Cancel
+          IN_PROGRESS  -> Complete Route + Cancel
+          COMPLETED    -> Plan Another Route
+          CANCELLED    -> Plan Another Route
     -->
-    <div id="route-empty" class="route-empty" hidden>
-        <h2>No active route</h2>
-        <p>Plan a route from the Orders tab to get started.</p>
-        <button class="route-empty-cta" type="button" data-page="orders">
-            Go to Orders
-        </button>
+    <div class="route-status-bar">
+        <div id="route-status-info" class="route-status-info" hidden>
+            <span id="route-status-number" class="route-status-number"></span>
+            <span id="route-status-pill" class="route-status-pill"></span>
+            <span id="route-status-summary" class="route-status-summary"></span>
+        </div>
+
+        <div id="route-status-empty" class="route-status-empty" hidden>
+            <span class="route-status-empty-text">No active route</span>
+            <button class="btn-primary" type="button" data-page="orders">Plan Route</button>
+        </div>
+
+        <div id="route-status-actions" class="route-status-actions"></div>
     </div>
 
     <!--
-      Two-column grid (hidden when the empty state is shown):
-        .route-main   — header + map + cancel-confirm
-        .route-stops-panel — sequenced stops list with Mark Delivered actions
+      Map stage. Fills all remaining vertical space below the status bar.
+      .route-map-stage is the positioning context for the next-stop overlay.
     -->
-    <div id="route-grid" class="route-grid" hidden>
-
-        <div class="route-main">
-
-            <!-- Header bar — populated by applyRouteToView -->
-            <div id="route-header" class="route-header">
-                <div class="route-header-info">
-                    <span id="route-header-number" class="route-header-number"></span>
-                    <span id="route-header-status" class="route-header-status"></span>
-                    <span id="route-header-summary" class="route-header-summary"></span>
-                </div>
-                <div id="route-header-actions" class="route-header-actions"></div>
+    <div class="route-map-stage">
+        <div id="route-map-wrapper" class="map-container">
+            <div id="map"></div>
+            <div id="map-overlay">
+                <div class="map-status" id="map-status">Locating...</div>
             </div>
-
-            <!--
-              Map. Always present in the DOM so celtechInitMap() / queued
-              celtechSetRoute have a target. Hidden via inline display:none
-              when the route is COMPLETED or CANCELLED.
-            -->
-            <div id="route-map-wrapper" class="map-container">
-                <div id="map"></div>
-                <div id="map-overlay">
-                    <div class="map-status" id="map-status">Locating...</div>
-                </div>
-            </div>
-
-            <!--
-              Inline cancel-confirm panel — hidden by default. The hidden
-              attribute is enforced via the [hidden] rule near the top of
-              style.css so a class-level `display: flex` can't override it.
-            -->
-            <div id="route-confirm-cancel" class="route-confirm" hidden>
-                <div class="route-confirm-text">
-                    <strong>Cancel this route?</strong>
-                    <p>All deliveries on this route will be released back to PENDING and become available to add to a new route. This can't be undone.</p>
-                </div>
-                <div class="route-confirm-actions">
-                    <button id="route-confirm-cancel-no" class="btn-secondary" type="button">Keep Route</button>
-                    <button id="route-confirm-cancel-yes" class="btn-danger" type="button">Cancel Route</button>
-                </div>
-            </div>
-
-        </div><!-- /.route-main -->
+        </div>
 
         <!--
-          Right-side stops panel. Stops are listed in `sequence` order with
-          their Mark Delivered buttons. Rendered by applyRouteToView from
-          the active route's stop list.
+          Bottom-left next-stop overlay. Hidden when:
+            - no active route
+            - route is not IN_PROGRESS (no Mark Delivered until started)
+            - every stop has reached a terminal state (DELIVERED/FAILED/SKIPPED)
 
-          Sticky positioning keeps the list visible as the left column
-          (mostly the map) sits in place — internal scroll handles a long
-          stop list.
+          Two views inside:
+            .next-stop-collapsed  default — minimal: sequence + customer + Mark btn
+            .next-stop-expanded   after tap — adds phone, full address, instructions
         -->
-        <aside class="route-stops-panel">
-            <h2 class="route-stops-panel-title">Deliveries</h2>
-            <p class="route-stops-panel-subtitle">In delivery order</p>
-            <div id="route-stops" class="route-stops"></div>
-        </aside>
+        <div id="next-stop-overlay" class="next-stop-overlay" hidden>
+            <button class="next-stop-toggle" type="button"
+                    data-stop-action="toggle-expand"
+                    aria-label="Toggle stop details">
+                <div class="next-stop-header">
+                    <span id="next-stop-seq" class="next-stop-seq"></span>
+                    <div class="next-stop-customer">
+                        <div id="next-stop-customer-name" class="next-stop-customer-name"></div>
+                        <div id="next-stop-address-short" class="next-stop-address-short"></div>
+                    </div>
+                    <span class="next-stop-chevron" aria-hidden="true">▾</span>
+                </div>
 
-    </div><!-- /#route-grid -->
+                <div id="next-stop-details" class="next-stop-details" hidden>
+                    <div id="next-stop-phone" class="next-stop-phone"></div>
+                    <div id="next-stop-address-full" class="next-stop-address-full"></div>
+                    <div id="next-stop-instructions" class="next-stop-instructions" hidden></div>
+                </div>
+            </button>
+
+            <button class="btn-primary next-stop-mark-btn" type="button"
+                    data-stop-action="mark-delivered"
+                    id="next-stop-mark-btn">
+                Mark Delivered
+            </button>
+        </div>
+    </div>
 
 </div>
