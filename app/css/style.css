@@ -1,1128 +1,1131 @@
+/* ============================================================================
+ *
+ *  Celtech Kiosk Stylesheet
+ *
+ *  Organization:
+ *    1. Design tokens (CSS custom properties at :root)
+ *    2. Reset / base
+ *    3. Layout shell (sidebar, main, brand, nav)
+ *    4. Components
+ *         a. Buttons
+ *         b. Status pills
+ *         c. Cards (order + stop common pattern)
+ *         d. Alerts / errors
+ *         e. Modal (kiosk-modal-backdrop)
+ *         f. Map shell
+ *    5. Pages
+ *         a. Home / welcome
+ *         b. Orders
+ *         c. Route
+ *    6. Loader spinner
+ *
+ *  Naming conventions:
+ *    - Tokens live on :root, names start --color-, --space-, --radius-,
+ *      --font-, --shadow-, --transition-, --width-.
+ *    - Component classes use the pattern .component or .component-element
+ *      (e.g. .order-card, .order-card-header). Variants append a suffix
+ *      (.order-card-locked, .order-card-compact).
+ *    - Status variants follow the pattern .x-status-y where y matches the
+ *      enum name lowercased (e.g. .order-status-delivered).
+ *
+ *  When editing:
+ *    - Reach for an existing token before adding a new color/spacing value.
+ *    - If you need a value that doesn't fit the scale, add a new token at
+ *      :root rather than hardcoding inline.
+ *    - Page-specific rules live in section 5 — components stay reusable in 4.
+ *
+ * ============================================================================ */
 
-  * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    font-family: 'Segoe UI', sans-serif;
-    background: #1a2415;
-    color: #e8f0e3;
-    display: flex;
-    height: 100vh;
-    overflow: hidden;
-  }
-  .sidebar {
-    width: 220px;
-    background: #2a3a22;
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-    border-right: 2px solid #1a2415;
-    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.4);
-  }
-  .brand {
-    padding: 10px 0 20px;
-    border-bottom: 2px solid #3d5230;
-    margin-bottom: 20px;
-    text-align: center;
-  }
-  .brand img {
-    max-width: 100%;
-    height: auto;
-    max-height: 60px;
-    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
-  }
-  .sidebar button {
-    display: block;
-    width: 100%;
-    padding: 15px;
-    margin: 6px 0;
-    background: #3d5230;
-    color: #e8f0e3;
-    border: 2px solid #1a2415;
-    font-size: 16px;
-    border-radius: 6px;
-    text-align: left;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-  }
-  .sidebar button.active {
-    background: #556b44;
-    border-color: #c9a962;
-    box-shadow: 0 0 12px rgba(201, 169, 98, 0.3);
-  }
-  .sidebar button:active {
-    background: #556b44;
-    border-color: #c9a962;
-    transform: translateY(1px);
-    box-shadow: 0 0 12px rgba(201, 169, 98, 0.3);
-  }
-  .sidebar button:focus {
-      outline: none;
-    }
-    .sidebar button:focus-visible {
-      outline: none;
-    }
-    /* Prevent sticky tap highlight on touch devices */
-    .sidebar button {
-      -webkit-tap-highlight-color: transparent;
-    }
-  .main {
-    flex: 1;
-    padding: 40px;
-    background: linear-gradient(135deg, #1a2415 0%, #243320 100%);
-    overflow-y: auto;
-  }
+/* ============================================================================
+ * 1. Design tokens
+ * ============================================================================ */
 
-  /* Welcome/Home page styling */
-  .welcome-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 80vh;
-    text-align: center;
-  }
-  .logo-hero {
-    margin-bottom: 30px;
-    animation: fadeIn 1.2s ease-in;
-  }
-  .hero-logo {
-    max-width: 300px;
-    height: auto;
-    filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.6));
-  }
-  .welcome-title {
-    font-size: 48px;
-    margin: 20px 0 10px;
-    color: #c9a962;
-    text-shadow: 3px 3px 8px rgba(0, 0, 0, 0.7);
-    font-weight: 300;
-    letter-spacing: 2px;
-    animation: fadeIn 1.5s ease-in;
-  }
-  .welcome-subtitle {
-    font-size: 20px;
-    color: #a8d49b;
-    font-style: italic;
-    margin-bottom: 40px;
-    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
-    animation: fadeIn 1.8s ease-in;
-  }
-  .start-route-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 14px;
-    padding: 20px 40px;
-    background: linear-gradient(135deg, #3d5230 0%, #556b44 100%);
-    color: #e8f0e3;
-    border: 2px solid #c9a962;
-    border-radius: 10px;
-    font-family: inherit;
-    font-size: 22px;
-    font-weight: 500;
-    letter-spacing: 1px;
-    cursor: pointer;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4),
-                0 0 20px rgba(201, 169, 98, 0.15);
-    transition: all 0.2s ease;
-    animation: fadeIn 2.1s ease-in;
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  .start-route-btn:active {
-    transform: translateY(2px);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4),
-                0 0 24px rgba(201, 169, 98, 0.4);
-    background: linear-gradient(135deg, #556b44 0%, #3d5230 100%);
-  }
-
-  .start-route-btn:focus,
-  .start-route-btn:focus-visible {
-    outline: none;
-  }
-
-  .start-route-icon {
-    color: #c9a962;
-    font-size: 28px;
-    line-height: 1;
-    transition: transform 0.2s ease;
-  }
-
-  .start-route-btn:active .start-route-icon {
-    transform: translateX(4px);
-  }
-
-  .start-route-label {
-    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
-  }
-
-
-  /* Page content styling */
-  .page-content {
-    animation: fadeIn 0.3s ease-in;
-  }
-  .page-content h1 {
-    margin-top: 0;
-    color: #c9a962;
-    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
-    border-bottom: 2px solid #3d5230;
-    padding-bottom: 12px;
-  }
-  .page-content p {
-    color: #d4e0cc;
-    font-size: 16px;
-  }
-
-  /* Animations */
-  @keyframes fadeIn {
-    from {
-      opacity: 0;
-      transform: translateY(20px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  .error {
-    color: #ff6b6b;
-    padding: 20px;
-    text-align: center;
-  }
-
-  /* ====== Map container styles ====== */
-
-  .main:has(.map-container) {
-    padding: 0;
-  }
-
-  .map-container {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-  }
-
-  #map {
-    width: 100%;
-    height: 100%;
-  }
-
-  #map-overlay {
-    position: absolute;
-    top: 12px;
-    left: 12px;
-    pointer-events: none;
-    z-index: 10;
-  }
-
-  .map-status {
-    background: rgba(26, 36, 21, 0.85);
-    color: #d4e0cc;
-    padding: 8px 14px;
-    border-radius: 6px;
-    border: 1px solid #3d5230;
-    font-size: 13px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
-    transition: opacity 0.5s ease;
-    pointer-events: auto;
-  }
-
-  .map-status.warning {
-    border-color: #c9a962;
-    color: #c9a962;
-  }
-
-  .map-status.error {
-    border-color: #ff6b6b;
-    color: #ff6b6b;
-  }
-
-  .map-status.fade-out {
-    opacity: 0;
-  }
-
-  /* ====== Orders tab (append to style.css) ====== */
-
-  .orders-subtitle {
-    color: #a8d49b;
-    font-style: italic;
-    margin-bottom: 24px;
-  }
-
-  .orders-loading,
-  .orders-empty {
-    color: #a8d49b;
-    text-align: center;
-    padding: 40px 20px;
-    font-style: italic;
-  }
-
-  .orders-list {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-    gap: 16px;
-  }
-
-  .order-card {
-    background: rgba(42, 58, 34, 0.6);
-    border: 2px solid #3d5230;
-    border-radius: 8px;
-    padding: 16px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-    transition: border-color 0.2s ease;
-  }
-
-  .order-card:hover {
-    border-color: #556b44;
-  }
-
-  .order-card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 10px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid #3d5230;
-  }
-
-  .order-number {
-    color: #c9a962;
-    font-weight: 600;
-    font-size: 15px;
-    letter-spacing: 0.5px;
-  }
-
-  .order-status {
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    padding: 3px 8px;
-    border-radius: 4px;
-    background: rgba(168, 212, 155, 0.15);
-    color: #a8d49b;
-    border: 1px solid #556b44;
-  }
-
-  .order-status-paid {
-    background: rgba(168, 212, 155, 0.15);
-    color: #a8d49b;
-    border-color: #556b44;
-  }
-
-  .order-status-pending {
-    background: rgba(201, 169, 98, 0.15);
-    color: #c9a962;
-    border-color: #c9a962;
-  }
-
-  .order-status-cancelled,
-  .order-status-refunded {
-    background: rgba(255, 107, 107, 0.1);
-    color: #ff6b6b;
-    border-color: #ff6b6b;
-  }
-
-  .order-customer {
-    color: #e8f0e3;
-    font-size: 16px;
-    font-weight: 500;
-    margin-bottom: 2px;
-  }
-
-  .order-phone {
-    color: #a8d49b;
-    font-size: 13px;
-    margin-bottom: 8px;
-  }
-
-  .order-address {
-    color: #d4e0cc;
-    font-size: 13px;
-    margin-bottom: 10px;
-    line-height: 1.5;
-  }
-
-  .order-items {
-    color: #a8d49b;
-    font-size: 12px;
-    font-style: italic;
-    margin-bottom: 10px;
-    line-height: 1.4;
-  }
-
-  .order-instructions {
-    color: #c9a962;
-    font-size: 12px;
-    background: rgba(201, 169, 98, 0.08);
-    border-left: 3px solid #c9a962;
-    padding: 8px 10px;
-    margin-bottom: 12px;
-    border-radius: 0 4px 4px 0;
-  }
-
-  .order-card-footer {
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
-    gap: 10px;
-    padding-top: 8px;
-    border-top: 1px solid #3d5230;
-  }
-
-  .order-total {
-    color: #c9a962;
-    font-size: 18px;
-    font-weight: 600;
-  }
-
-  /* ====== Orders tab ====== */
-
-  /*
-   * The Orders page is a vertical flex column so the action bar can pin to
-   * the bottom while the list scrolls. The bottom action bar relies on
-   * .main being the scroll container (set in the existing rules above).
+:root {
+  /* ---- Color: brand palette ----
+   * Anchored around dark green (page) and gold (accents). The greens go from
+   * deep (--color-bg) through mid (--color-surface-*) to bright (text). The
+   * golds are the primary CTA and route-number color.
    */
-  .orders-page {
-    display: flex;
-    flex-direction: column;
-    min-height: 100%;
-  }
-
-  .orders-subtitle {
-    color: #a8d49b;
-    font-style: italic;
-    margin-bottom: 16px;
-  }
-
-  .orders-controls {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    padding: 10px 14px;
-    margin-bottom: 16px;
-    background: rgba(42, 58, 34, 0.6);
-    border: 1px solid #3d5230;
-    border-radius: 8px;
-  }
-
-  .orders-select-all-label {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    cursor: pointer;
-    color: #d4e0cc;
-    font-size: 14px;
-    user-select: none;
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  .orders-select-all-label input[type="checkbox"] {
-    width: 20px;
-    height: 20px;
-    accent-color: #c9a962;
-    cursor: pointer;
-  }
-
-  .orders-loading,
-  .orders-empty {
-    color: #a8d49b;
-    text-align: center;
-    padding: 40px 20px;
-    font-style: italic;
-  }
-
-  .orders-list {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 16px;
-    /*
-     * Bottom padding ensures the last row of cards isn't hidden behind the
-     * sticky action bar. 96px is roughly the action bar's outer height.
-     */
-    padding-bottom: 96px;
-  }
-
-  /* ----- Order card ----- */
-
-  .order-card {
-    background: rgba(42, 58, 34, 0.6);
-    border: 2px solid #3d5230;
-    border-radius: 8px;
-    padding: 16px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-    transition: border-color 0.2s ease;
-  }
-
-  .order-card:hover {
-    border-color: #556b44;
-  }
-
-  /*
-   * A card is "locked" when its order isn't routable (already delivered,
-   * already on another route, not yet paid, etc). Slightly dimmed so the
-   * driver can tell at a glance which cards they can add to a new route.
-   */
-  .order-card-locked {
-    opacity: 0.7;
-  }
-
-  .order-card-header {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 10px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid #3d5230;
-  }
-
-  /* Per-card checkbox column. Fixed width so headers align across cards. */
-  .order-select {
-    flex: 0 0 24px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .order-select-placeholder {
-    /* Empty placeholder keeps the order-number aligned with checkboxed cards */
-    width: 24px;
-    height: 24px;
-  }
-
-  .order-select-checkbox {
-    width: 22px;
-    height: 22px;
-    margin: 0;
-    accent-color: #c9a962;
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  .order-number {
-    flex: 1;
-    color: #c9a962;
-    font-weight: 600;
-    font-size: 15px;
-    letter-spacing: 0.5px;
-  }
-
-  .order-status {
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    padding: 3px 8px;
-    border-radius: 4px;
-    background: rgba(168, 212, 155, 0.15);
-    color: #a8d49b;
-    border: 1px solid #556b44;
-  }
-
-  /* Order status variants */
-  .order-status-paid {
-    background: rgba(168, 212, 155, 0.18);
-    color: #a8d49b;
-    border-color: #556b44;
-  }
-  .order-status-pending {
-    background: rgba(201, 169, 98, 0.18);
-    color: #c9a962;
-    border-color: #c9a962;
-  }
-  .order-status-cancelled,
-  .order-status-refunded {
-    background: rgba(255, 107, 107, 0.15);
-    color: #ff9c9c;
-    border-color: #ff6b6b;
-  }
-
-  /* Delivery status variants (used when deliveryStatus is set) */
-  .order-status-assigned,
-  .order-status-out_for_delivery {
-    background: rgba(201, 169, 98, 0.22);
-    color: #d6b97a;
-    border-color: #c9a962;
-  }
-  .order-status-delivered {
-    background: rgba(168, 212, 155, 0.25);
-    color: #a8d49b;
-    border-color: #a8d49b;
-  }
-  .order-status-failed,
-  .order-status-skipped {
-    background: rgba(255, 107, 107, 0.18);
-    color: #ff9c9c;
-    border-color: #ff6b6b;
-  }
-
-  .order-customer {
-    color: #e8f0e3;
-    font-size: 16px;
-    font-weight: 500;
-    margin-bottom: 4px;
-  }
-
-  .order-phone {
-    color: #a8d49b;
-    font-size: 13px;
-    margin-bottom: 6px;
-  }
-
-  .order-address {
-    color: #d4e0cc;
-    font-size: 13px;
-    margin-bottom: 8px;
-    line-height: 1.4;
-  }
-
-  .order-items {
-    color: #a8d49b;
-    font-size: 12px;
-    font-style: italic;
-    margin-bottom: 10px;
-    line-height: 1.4;
-  }
-
-  .order-instructions {
-    color: #d4e0cc;
-    font-size: 12px;
-    margin-bottom: 10px;
-    padding: 6px 10px;
-    background: rgba(26, 36, 21, 0.5);
-    border-left: 3px solid #c9a962;
-    border-radius: 4px;
-  }
-
-  .order-card-footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .order-total {
-    color: #c9a962;
-    font-size: 18px;
-    font-weight: 600;
-  }
-
-  /* ----- Sticky action bar ----- */
-
-  /*
-   * Pinned to the bottom of .main's viewport via `position: sticky`. The
-   * parent .main has overflow-y: auto and a fixed height (100vh), so
-   * sticky with `bottom: 0` keeps the bar visible as the orders list
-   * scrolls underneath.
-   */
-  .orders-action-bar {
-    position: sticky;
-    bottom: 0;
-    margin-top: auto;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    padding: 14px 20px;
-    background: rgba(26, 36, 21, 0.95);
-    border-top: 2px solid #3d5230;
-    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.4);
-    /* Stretch to the page edges by offsetting the .main padding. */
-    margin-left: -40px;
-    margin-right: -40px;
-    padding-left: 40px;
-    padding-right: 40px;
-  }
-
-  .orders-action-count {
-    color: #d4e0cc;
-    font-size: 14px;
-    font-style: italic;
-  }
-
-  .orders-generate-btn {
-    padding: 12px 28px;
-    background: linear-gradient(135deg, #3d5230 0%, #556b44 100%);
-    color: #e8f0e3;
-    border: 2px solid #c9a962;
-    border-radius: 8px;
-    font-family: inherit;
-    font-size: 15px;
-    font-weight: 500;
-    letter-spacing: 0.5px;
-    cursor: pointer;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5),
-    0 0 16px rgba(201, 169, 98, 0.2);
-    -webkit-tap-highlight-color: transparent;
-    transition: all 0.2s ease;
-  }
-
-  .orders-generate-btn:active:not(:disabled) {
-    transform: translateY(1px);
-    background: linear-gradient(135deg, #556b44 0%, #3d5230 100%);
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5),
-    0 0 20px rgba(201, 169, 98, 0.4);
-  }
-
-  .orders-generate-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    box-shadow: none;
-  }
-
-  .orders-generate-btn:focus,
-  .orders-generate-btn:focus-visible {
-    outline: none;
-  }
-
-  /* Error surfaced from a failed generate-route POST */
-  .orders-action-error {
-    flex: 1 0 100%;
-    margin-top: 8px;
-    color: #ff9c9c;
-    font-size: 13px;
-  }
-
-  /* ====== Route tab ====== */
-
-  .route-page {
-    display: flex;
-    flex-direction: column;
-    min-height: 100%;
-    gap: 16px;
-  }
-
-  /* ----- Header bar ----- */
-
-  .route-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    padding: 14px 18px;
-    background: rgba(42, 58, 34, 0.7);
-    border: 1px solid #3d5230;
-    border-radius: 10px;
-  }
-
-  .route-header-info {
-    display: flex;
-    align-items: baseline;
-    flex-wrap: wrap;
-    gap: 12px;
-    flex: 1;
-    min-width: 0;
-  }
-
-  .route-header-number {
-    color: #c9a962;
-    font-weight: 600;
-    font-size: 16px;
-    letter-spacing: 0.5px;
-  }
-
-  .route-header-status {
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    padding: 3px 8px;
-    border-radius: 4px;
-    border: 1px solid;
-  }
-
-  .route-header-status-planned {
-    color: #c9a962;
-    border-color: #c9a962;
-    background: rgba(201, 169, 98, 0.15);
-  }
-
-  .route-header-status-in_progress {
-    color: #d4e0cc;
-    border-color: #a8d49b;
-    background: rgba(168, 212, 155, 0.2);
-  }
-
-  .route-header-status-completed {
-    color: #a8d49b;
-    border-color: #a8d49b;
-    background: rgba(168, 212, 155, 0.25);
-  }
-
-  .route-header-status-cancelled {
-    color: #ff9c9c;
-    border-color: #ff6b6b;
-    background: rgba(255, 107, 107, 0.15);
-  }
-
-  .route-header-summary {
-    color: #d4e0cc;
-    font-size: 13px;
-  }
-
-  .route-header-actions {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-
-  /* ----- Empty state ----- */
-
-  .route-empty {
-    padding: 40px 20px;
-    text-align: center;
-    background: rgba(42, 58, 34, 0.5);
-    border: 1px dashed #3d5230;
-    border-radius: 10px;
-  }
-
-  .route-empty h2 {
-    color: #c9a962;
-    margin: 0 0 8px;
-  }
-
-  .route-empty p {
-    color: #a8d49b;
-    margin: 0 0 18px;
-  }
-
-  .route-empty-cta {
-    padding: 12px 28px;
-    background: linear-gradient(135deg, #3d5230 0%, #556b44 100%);
-    color: #e8f0e3;
-    border: 2px solid #c9a962;
-    border-radius: 8px;
-    font-family: inherit;
-    font-size: 15px;
-    cursor: pointer;
-  }
-
-  /* ----- Map container ----- */
-
-  /*
-   * The route page reuses the .map-container styles from the existing
-   * stylesheet. No overrides needed — just ensure the map sits between the
-   * header and the stops list with reasonable height.
-   */
-  .route-page .map-container {
-    min-height: 320px;
-    flex: 0 0 auto;
-    border-radius: 10px;
-    overflow: hidden;
-  }
-
-  /* ----- Stop cards ----- */
-
-  .route-stops {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  .stop-card {
-    background: rgba(42, 58, 34, 0.6);
-    border: 2px solid #3d5230;
-    border-radius: 10px;
-    padding: 14px 16px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-  }
-
-  .stop-card-delivered {
-    border-color: #a8d49b;
-    background: rgba(168, 212, 155, 0.08);
-  }
-
-  .stop-card-failed,
-  .stop-card-skipped {
-    border-color: #ff6b6b;
-    background: rgba(255, 107, 107, 0.08);
-    opacity: 0.85;
-  }
-
-  .stop-card-header {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 10px;
-  }
-
-  .stop-seq {
-    flex: 0 0 36px;
-    height: 36px;
-    width: 36px;
-    border-radius: 50%;
-    background: #c9a962;
-    color: #1a2415;
-    font-weight: 700;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 15px;
-  }
-
-  .stop-card-delivered .stop-seq {
-    background: #a8d49b;
-  }
-
-  .stop-customer {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .stop-customer-name {
-    color: #e8f0e3;
-    font-size: 15px;
-    font-weight: 500;
-  }
-
-  .stop-customer-phone {
-    color: #a8d49b;
-    font-size: 12px;
-    margin-top: 2px;
-  }
-
-  .stop-status {
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    padding: 3px 8px;
-    border-radius: 4px;
-    border: 1px solid;
-    flex-shrink: 0;
-  }
-
-  .stop-status-pending {
-    color: #c9a962;
-    border-color: #c9a962;
-    background: rgba(201, 169, 98, 0.15);
-  }
-
-  .stop-status-assigned,
-  .stop-status-out_for_delivery {
-    color: #d6b97a;
-    border-color: #c9a962;
-    background: rgba(201, 169, 98, 0.2);
-  }
-
-  .stop-status-delivered {
-    color: #a8d49b;
-    border-color: #a8d49b;
-    background: rgba(168, 212, 155, 0.25);
-  }
-
-  .stop-status-failed,
-  .stop-status-skipped {
-    color: #ff9c9c;
-    border-color: #ff6b6b;
-    background: rgba(255, 107, 107, 0.18);
-  }
-
-  .stop-address {
-    color: #d4e0cc;
-    font-size: 13px;
-    line-height: 1.4;
-    margin-bottom: 8px;
-    padding-left: 48px; /* line up with the customer block, past the seq badge */
-  }
-
-  .stop-instructions {
-    color: #d4e0cc;
-    font-size: 12px;
-    padding: 6px 10px;
-    margin: 8px 0 0 48px;
-    background: rgba(26, 36, 21, 0.5);
-    border-left: 3px solid #c9a962;
-    border-radius: 4px;
-  }
-
-  .stop-actions {
-    margin: 12px 0 0 48px;
-  }
-
-  .stop-mark-btn {
-    padding: 10px 18px;
-    font-size: 14px;
-  }
-
-  .route-empty-stops {
-    text-align: center;
-    color: #a8d49b;
-    font-style: italic;
-    padding: 24px;
-  }
-
-  /* ----- Cancel confirm panel ----- */
-
-  .route-confirm {
-    margin-top: 16px;
-    padding: 16px;
-    background: rgba(255, 107, 107, 0.08);
-    border: 1px solid #ff6b6b;
-    border-radius: 10px;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-  }
-
-  .route-confirm-text strong {
-    color: #ff9c9c;
-    font-size: 15px;
-    display: block;
-    margin-bottom: 6px;
-  }
-
-  .route-confirm-text p {
-    color: #d4e0cc;
-    font-size: 13px;
-    margin: 0;
-    line-height: 1.5;
-  }
-
-  .route-confirm-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 12px;
-  }
-
-  /* ----- Shared button variants used by the Route tab ----- */
-
-  .btn-primary {
-    padding: 10px 22px;
-    background: linear-gradient(135deg, #3d5230 0%, #556b44 100%);
-    color: #e8f0e3;
-    border: 2px solid #c9a962;
-    border-radius: 8px;
-    font-family: inherit;
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-    transition: all 0.15s ease;
-  }
-
-  .btn-primary:active:not(:disabled) {
-    transform: translateY(1px);
-    background: linear-gradient(135deg, #556b44 0%, #3d5230 100%);
-  }
-
-  .btn-primary:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .btn-secondary {
-    padding: 10px 22px;
-    background: transparent;
-    color: #d4e0cc;
-    border: 2px solid #3d5230;
-    border-radius: 8px;
-    font-family: inherit;
-    font-size: 14px;
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  .btn-secondary:hover {
-    border-color: #556b44;
-  }
-
-  .btn-link-danger {
-    padding: 6px 10px;
-    background: transparent;
-    color: #ff9c9c;
-    border: none;
-    font-family: inherit;
-    font-size: 13px;
-    cursor: pointer;
-    text-decoration: underline;
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  .btn-danger {
-    padding: 10px 22px;
-    background: #d14343;
-    color: #fff;
-    border: 2px solid #b03030;
-    border-radius: 8px;
-    font-family: inherit;
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  .btn-danger:active {
-    transform: translateY(1px);
-    background: #b03030;
-  }
-
-  /* ====== Kiosk modal (used by the active-route conflict on Generate) ====== */
-
-  .kiosk-modal-backdrop {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.6);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-    padding: 20px;
-  }
-
-  .kiosk-modal {
-    background: #2a3a22;
-    border: 2px solid #c9a962;
-    border-radius: 12px;
-    padding: 24px;
-    max-width: 480px;
-    width: 100%;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
-  }
-
-  .kiosk-modal h3 {
-    color: #c9a962;
-    margin: 0 0 12px;
-    font-size: 18px;
-  }
-
-  .kiosk-modal p {
-    color: #d4e0cc;
-    margin: 0 0 18px;
-    line-height: 1.5;
-  }
-
-  .kiosk-modal-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 12px;
-  }
-
-  /* ====== MapLibre GL UI theming ====== */
-  /* Make MapLibre's default controls fit the Celtech dark palette */
-
-  .maplibregl-ctrl-attrib {
-    background: rgba(26, 36, 21, 0.85) !important;
-    color: #d4e0cc !important;
-    font-size: 11px;
-  }
-
-  .maplibregl-ctrl-attrib a {
-    color: #c9a962 !important;
-  }
-
-  .maplibregl-ctrl-group {
-    background: rgba(42, 58, 34, 0.9) !important;
-    border: 1px solid #3d5230 !important;
-  }
-
-  .maplibregl-ctrl-group button {
-    background-color: transparent !important;
-  }
-
-  .maplibregl-ctrl-group button:hover {
-    background-color: rgba(85, 107, 68, 0.4) !important;
-  }
-
-  /* Invert the control icons (they're dark by default; we need light on dark bg) */
-  .maplibregl-ctrl-group button span {
-    filter: invert(0.85);
-  }
+  --color-bg:               #1a2415;   /* darkest, page background */
+  --color-bg-gradient-end:  #243320;   /* lighter end of the main gradient */
+  --color-surface-0:        #243320;   /* slightly lifted, POI / accents on map */
+  --color-surface-1:        #2a3a22;   /* sidebar, modals */
+  --color-surface-2:        rgba(42, 58, 34, 0.6);  /* cards, panels (translucent) */
+  --color-surface-2-strong: rgba(42, 58, 34, 0.7);  /* header bar (less transparent) */
+  --color-surface-2-soft:   rgba(42, 58, 34, 0.5);  /* empty-state, very subtle */
+  --color-surface-overlay:  rgba(26, 36, 21, 0.85); /* map status overlay bg */
+  --color-surface-instr:    rgba(26, 36, 21, 0.5);  /* delivery instructions inset */
+
+  --color-border:           #3d5230;
+  --color-border-strong:    #556b44;
+
+  /* Brand accents */
+  --color-accent-gold:        #c9a962;   /* primary CTA, route number */
+  --color-accent-gold-soft:   #d6b97a;   /* in-progress, in-between states */
+  --color-accent-gold-tint:   rgba(201, 169, 98, 0.15);
+  --color-accent-gold-tint-strong: rgba(201, 169, 98, 0.25);
+  --color-accent-gold-tint-glow:   rgba(201, 169, 98, 0.3);
+
+  --color-accent-green:       #a8d49b;   /* success, delivered */
+  --color-accent-green-mid:   #7a9461;
+  --color-accent-green-tint:  rgba(168, 212, 155, 0.15);
+  --color-accent-green-tint-strong: rgba(168, 212, 155, 0.25);
+
+  /* Text */
+  --color-text:        #e8f0e3;   /* primary text, brightest */
+  --color-text-soft:   #d4e0cc;   /* secondary text */
+  --color-text-muted:  #a8d49b;   /* tertiary, italic, hints */
+
+  /* Danger */
+  --color-danger:         #ff6b6b;
+  --color-danger-soft:    #ff9c9c;
+  --color-danger-strong:  #d14343;
+  --color-danger-deeper:  #b03030;
+  --color-danger-tint:    rgba(255, 107, 107, 0.15);
+  --color-danger-tint-strong: rgba(255, 107, 107, 0.18);
+  --color-danger-tint-soft: rgba(255, 107, 107, 0.08);
+
+  /* On-accent text (used against gold-filled backgrounds) */
+  --color-text-on-accent: var(--color-bg);
+
+  /* ---- Spacing scale ---- */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-7:  32px;
+  --space-8:  40px;
+
+  /* ---- Sizing ---- */
+  --radius-sm:  4px;
+  --radius-md:  6px;
+  --radius-lg:  8px;
+  --radius-xl:  10px;
+  --radius-2xl: 12px;
+  --radius-pill: 9999px;
+  --radius-circle: 50%;
+
+  --sidebar-width:  220px;
+  --orders-width:   25%;          /* tunable for screen size */
+  --orders-min-width: 280px;      /* below this, the cards stop being readable */
+  --route-map-height: 320px;      /* explicit so #map gets a real height */
+  --modal-max-width: 480px;
+
+  /* ---- Typography ---- */
+  --font-stack: 'Segoe UI', sans-serif;
+
+  --font-xs:    11px;
+  --font-sm:    12px;
+  --font-md:    13px;
+  --font-base:  14px;
+  --font-lg:    15px;
+  --font-xl:    16px;
+  --font-2xl:   18px;
+  --font-3xl:   22px;
+
+  --weight-medium:   500;
+  --weight-semibold: 600;
+  --weight-bold:     700;
+
+  /* ---- Effects ---- */
+  --shadow-card:   0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-card-soft: 0 2px 4px rgba(0, 0, 0, 0.3);
+  --shadow-side:   2px 0 8px rgba(0, 0, 0, 0.4);
+  --shadow-status: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-glow-gold: 0 0 12px var(--color-accent-gold-tint-glow);
+  --shadow-glow-gold-strong: 0 0 16px rgba(201, 169, 98, 0.2),
+  0 4px 12px rgba(0, 0, 0, 0.5);
+  --shadow-modal:  0 10px 40px rgba(0, 0, 0, 0.6);
+
+  --transition-fast: 0.15s ease;
+  --transition:      0.2s ease;
+
+  /* Map polyline color, also exposed as a token so JS can read it if needed */
+  --color-route-polyline: var(--color-accent-gold);
+}
+
+
+/* ============================================================================
+ * 2. Reset / base
+ * ============================================================================ */
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: var(--font-stack);
+  background: var(--color-bg);
+  color: var(--color-text);
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+
+/* ============================================================================
+ * 3. Layout shell
+ * ============================================================================ */
+
+.sidebar {
+  width: var(--sidebar-width);
+  background: var(--color-surface-1);
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  border-right: 2px solid var(--color-bg);
+  box-shadow: var(--shadow-side);
+}
+
+.brand {
+  padding: 10px 0 var(--space-5);
+  border-bottom: 2px solid var(--color-border);
+  margin-bottom: var(--space-5);
+  text-align: center;
+}
+
+.brand img {
+  max-width: 100%;
+  height: auto;
+  max-height: 60px;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+}
+
+.sidebar button {
+  display: block;
+  width: 100%;
+  padding: 15px;
+  margin: 6px 0;
+  background: var(--color-border);
+  color: var(--color-text);
+  border: 2px solid var(--color-bg);
+  font-size: var(--font-xl);
+  border-radius: var(--radius-md);
+  text-align: left;
+  cursor: pointer;
+  transition: all var(--transition);
+  box-shadow: var(--shadow-card-soft);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.sidebar button.active,
+.sidebar button:active {
+  background: var(--color-border-strong);
+  border-color: var(--color-accent-gold);
+  box-shadow: var(--shadow-glow-gold);
+}
+
+.sidebar button:active {
+  transform: translateY(1px);
+}
+
+.sidebar button:focus,
+.sidebar button:focus-visible {
+  outline: none;
+}
+
+.main {
+  flex: 1;
+  padding: var(--space-8);
+  background: linear-gradient(135deg, var(--color-bg) 0%, var(--color-bg-gradient-end) 100%);
+  overflow-y: auto;
+}
+
+/*
+ * IMPORTANT: this rule used to zap padding on any page hosting .map-container.
+ * That made sense when the Route tab was JUST a map. After Round B+, .route-page
+ * holds a header + map + stops list, and stripping the page padding made the
+ * whole layout flush to the edges. We keep this rule scoped to pages that ARE
+ * just a map (none currently — kept here for the case where you build a
+ * full-bleed-map page later).
+ */
+.main:has(> .page-content > .map-container:only-child) {
+  padding: 0;
+}
+
+
+/* ============================================================================
+ * 4. Components
+ * ============================================================================ */
+
+/* ----- 4a. Buttons -----
+ *
+ * Five button styles:
+ *   .btn-primary   — gold-bordered gradient, the default CTA
+ *   .btn-secondary — outlined, neutral text
+ *   .btn-danger    — solid red, destructive actions
+ *   .btn-link-danger — text-link with red color (for "Cancel" link)
+ *   .start-route-btn — the Home page hero button (page-specific)
+ *
+ * The page-specific Generate-Route and Empty-CTA buttons are styled like
+ * .btn-primary but kept under their page rules in section 5 because they
+ * have different sizing and shadow treatments tuned to their context.
+ */
+
+.btn-primary {
+  padding: 10px 22px;
+  background: linear-gradient(135deg, var(--color-border) 0%, var(--color-border-strong) 100%);
+  color: var(--color-text);
+  border: 2px solid var(--color-accent-gold);
+  border-radius: var(--radius-lg);
+  font-family: inherit;
+  font-size: var(--font-base);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: translateY(1px);
+  background: linear-gradient(135deg, var(--color-border-strong) 0%, var(--color-border) 100%);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  padding: 10px 22px;
+  background: transparent;
+  color: var(--color-text-soft);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  font-family: inherit;
+  font-size: var(--font-base);
+  cursor: pointer;
+  transition: border-color var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn-secondary:hover {
+  border-color: var(--color-border-strong);
+}
+
+.btn-danger {
+  padding: 10px 22px;
+  background: var(--color-danger-strong);
+  color: #fff;
+  border: 2px solid var(--color-danger-deeper);
+  border-radius: var(--radius-lg);
+  font-family: inherit;
+  font-size: var(--font-base);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn-danger:active {
+  transform: translateY(1px);
+  background: var(--color-danger-deeper);
+}
+
+.btn-link-danger {
+  padding: 6px 10px;
+  background: transparent;
+  color: var(--color-danger-soft);
+  border: none;
+  font-family: inherit;
+  font-size: var(--font-md);
+  cursor: pointer;
+  text-decoration: underline;
+  -webkit-tap-highlight-color: transparent;
+}
+
+
+/* ----- 4b. Status pills -----
+ *
+ * Generic status-pill chrome shared by order statuses (.order-status-*) and
+ * stop statuses (.stop-status-*). Each color variant sets text, border, and
+ * a translucent background.
+ */
+
+.order-status,
+.stop-status,
+.route-header-status {
+  font-size: var(--font-xs);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid;
+}
+
+/* Per-status colors. Same naming pattern, different palettes per state. */
+
+.order-status-paid,
+.stop-status-pending,
+.route-header-status-planned {
+  color: var(--color-accent-gold);
+  border-color: var(--color-accent-gold);
+  background: var(--color-accent-gold-tint);
+}
+
+.order-status-pending {
+  color: var(--color-accent-gold);
+  border-color: var(--color-accent-gold);
+  background: var(--color-accent-gold-tint);
+}
+
+.order-status-assigned,
+.order-status-out_for_delivery,
+.stop-status-assigned,
+.stop-status-out_for_delivery {
+  color: var(--color-accent-gold-soft);
+  border-color: var(--color-accent-gold);
+  background: rgba(201, 169, 98, 0.2);
+}
+
+.order-status-delivered,
+.stop-status-delivered,
+.route-header-status-completed {
+  color: var(--color-accent-green);
+  border-color: var(--color-accent-green);
+  background: var(--color-accent-green-tint-strong);
+}
+
+.route-header-status-in_progress {
+  color: var(--color-text-soft);
+  border-color: var(--color-accent-green);
+  background: rgba(168, 212, 155, 0.2);
+}
+
+.order-status-cancelled,
+.order-status-refunded,
+.order-status-failed,
+.order-status-skipped,
+.stop-status-failed,
+.stop-status-skipped,
+.route-header-status-cancelled {
+  color: var(--color-danger-soft);
+  border-color: var(--color-danger);
+  background: var(--color-danger-tint);
+}
+
+
+/* ----- 4c. Alerts / errors ----- */
+
+.error {
+  color: var(--color-danger-soft);
+  text-align: center;
+  padding: var(--space-5);
+}
+
+
+/* ----- 4d. Map shell -----
+ *
+ * .map-container is sized by whichever page hosts it. The default rule
+ * here gives it 100% of its parent (which works for pages that wrap it in
+ * a sized container). The Route tab overrides to a fixed height —
+ * see section 5c (.route-page .map-container).
+ */
+
+.map-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+#map {
+  width: 100%;
+  height: 100%;
+}
+
+#map-overlay {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.map-status {
+  background: var(--color-surface-overlay);
+  color: var(--color-text-soft);
+  padding: var(--space-2) 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  font-size: var(--font-md);
+  box-shadow: var(--shadow-status);
+  transition: opacity 0.5s ease;
+  pointer-events: auto;
+}
+
+.map-status.warning {
+  border-color: var(--color-accent-gold);
+  color: var(--color-accent-gold);
+}
+
+.map-status.error {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+.map-status.fade-out {
+  opacity: 0;
+}
+
+/* Hide attribution overlays that older MapLibre carried through */
+.maplibregl-ctrl-attrib,
+.maplibregl-ctrl-group {
+  display: none !important;
+}
+
+
+/* ----- 4e. Modal -----
+ *
+ * Used by the active-route conflict on Generate Route. One-modal-at-a-time
+ * pattern; app.js removes any existing backdrop before opening a new one.
+ */
+
+.kiosk-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: var(--space-5);
+}
+
+.kiosk-modal {
+  background: var(--color-surface-1);
+  border: 2px solid var(--color-accent-gold);
+  border-radius: var(--radius-2xl);
+  padding: var(--space-6);
+  max-width: var(--modal-max-width);
+  width: 100%;
+  box-shadow: var(--shadow-modal);
+}
+
+.kiosk-modal h3 {
+  color: var(--color-accent-gold);
+  margin: 0 0 var(--space-3);
+  font-size: var(--font-2xl);
+}
+
+.kiosk-modal p {
+  color: var(--color-text-soft);
+  margin: 0 0 18px;
+  line-height: 1.5;
+}
+
+.kiosk-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
+
+/* ============================================================================
+ * 5. Pages
+ * ============================================================================ */
+
+/* ----- 5a. Home / welcome ----- */
+
+.welcome-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  text-align: center;
+}
+
+.logo-hero {
+  margin-bottom: var(--space-7);
+}
+
+.hero-logo {
+  max-width: 280px;
+  width: 100%;
+  height: auto;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.5));
+}
+
+.welcome-title {
+  font-size: 36px;
+  color: var(--color-accent-gold);
+  margin: 0 0 var(--space-3);
+  letter-spacing: 2px;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+}
+
+.welcome-subtitle {
+  font-size: var(--font-2xl);
+  color: var(--color-text-muted);
+  margin: 0 0 var(--space-8);
+  font-style: italic;
+  letter-spacing: 1px;
+}
+
+.start-route-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 36px;
+  background: linear-gradient(135deg, var(--color-border) 0%, var(--color-border-strong) 100%);
+  color: var(--color-text);
+  border: 2px solid var(--color-accent-gold);
+  border-radius: var(--radius-2xl);
+  font-family: inherit;
+  font-size: var(--font-2xl);
+  font-weight: var(--weight-medium);
+  letter-spacing: 1px;
+  cursor: pointer;
+  box-shadow: var(--shadow-glow-gold-strong);
+  transition: all var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.start-route-btn:active {
+  transform: translateY(1px);
+  background: linear-gradient(135deg, var(--color-border-strong) 0%, var(--color-border) 100%);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5),
+  0 0 20px rgba(201, 169, 98, 0.4);
+}
+
+.start-route-icon {
+  font-size: var(--font-3xl);
+  color: var(--color-accent-gold);
+}
+
+.start-route-label {
+  white-space: nowrap;
+}
+
+.start-route-btn:focus,
+.start-route-btn:focus-visible {
+  outline: none;
+}
+
+
+/* ----- 5b. Orders -----
+ *
+ * Right-aligned, narrowed panel for a 7" kiosk screen. Width is
+ * --orders-width (default 25%, configurable via the token).
+ *
+ * Cards use a single-column compact layout. Customer name is the primary
+ * identifier; line items are hidden by default and the address is condensed
+ * to the city/state line. Driver gets a dense, scannable list.
+ */
+
+.page-content {
+  /* default for non-orders pages */
+}
+
+.orders-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  width: var(--orders-width);
+  min-width: var(--orders-min-width);
+  margin-left: auto;             /* right-align inside .main */
+}
+
+.orders-page h1 {
+  color: var(--color-accent-gold);
+  font-size: var(--font-3xl);
+  margin: 0 0 var(--space-2);
+}
+
+.orders-subtitle {
+  color: var(--color-text-muted);
+  font-style: italic;
+  margin: 0 0 var(--space-4);
+  font-size: var(--font-md);
+}
+
+.orders-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: 10px var(--space-3);
+  margin-bottom: var(--space-4);
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.orders-select-all-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  color: var(--color-text-soft);
+  font-size: var(--font-md);
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.orders-select-all-label input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--color-accent-gold);
+  cursor: pointer;
+}
+
+.orders-loading,
+.orders-empty {
+  color: var(--color-text-muted);
+  text-align: center;
+  padding: var(--space-8) var(--space-5);
+  font-style: italic;
+  font-size: var(--font-md);
+}
+
+/*
+ * Single-column list (no grid). At 25% width the cards each take the full
+ * available width of the orders panel.
+ *
+ * Bottom padding leaves room for the sticky action bar so the last card
+ * isn't hidden behind it.
+ */
+.orders-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-bottom: 110px;        /* bar is taller in the stacked variant */
+}
+
+/* ---- Compact order card ---- */
+
+.order-card {
+  background: var(--color-surface-2);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3) 14px;
+  box-shadow: var(--shadow-card);
+  transition: border-color var(--transition);
+}
+
+.order-card:hover {
+  border-color: var(--color-border-strong);
+}
+
+.order-card-locked {
+  opacity: 0.7;
+}
+
+.order-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: var(--space-2);
+}
+
+.order-select {
+  flex: 0 0 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.order-select-placeholder {
+  width: 22px;
+  height: 22px;
+}
+
+.order-select-checkbox {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--color-accent-gold);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.order-number {
+  flex: 1;
+  color: var(--color-accent-gold);
+  font-weight: var(--weight-semibold);
+  font-size: var(--font-md);
+  letter-spacing: 0.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Customer name is the prominent identifier on a compact card */
+.order-customer {
+  color: var(--color-text);
+  font-size: var(--font-lg);
+  font-weight: var(--weight-medium);
+  margin-bottom: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.order-phone {
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+  margin-bottom: var(--space-1);
+}
+
+/*
+ * Address: City, ST ZIP. The street line is intentionally NOT shown on
+ * compact cards (too long for a 25%-width column). The full address is
+ * still on the route stop cards.
+ */
+.order-address {
+  color: var(--color-text-soft);
+  font-size: var(--font-sm);
+  margin-bottom: var(--space-2);
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.order-address > div:first-child {
+  display: none;              /* hide street1/street2 on compact */
+}
+
+/* Line items: hidden entirely on compact cards (driver doesn't need them
+ * here; the route stop cards show them later if needed). */
+.order-items {
+  display: none;
+}
+
+.order-instructions {
+  color: var(--color-text-soft);
+  font-size: var(--font-sm);
+  margin-bottom: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-surface-instr);
+  border-left: 3px solid var(--color-accent-gold);
+  border-radius: var(--radius-sm);
+  /* Truncate long instructions on compact card */
+  max-height: 3.2em;
+  overflow: hidden;
+}
+
+.order-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.order-total {
+  color: var(--color-accent-gold);
+  font-size: var(--font-xl);
+  font-weight: var(--weight-semibold);
+}
+
+/* ---- Sticky action bar ----
+ *
+ * At 25% width the bar's contents stack: count text on top, full-width
+ * button below. Looks much tidier than trying to cram both side-by-side.
+ */
+.orders-action-bar {
+  position: sticky;
+  bottom: 0;
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-2);
+  padding: 14px var(--space-4);
+  background: rgba(26, 36, 21, 0.95);
+  border-top: 2px solid var(--color-border);
+  box-shadow: var(--shadow-status);
+  /* Stretch to the orders-panel edges by negative-margin'ing past .main padding */
+  margin-left: calc(-1 * var(--space-4));
+  margin-right: calc(-1 * var(--space-4));
+}
+
+.orders-action-count {
+  color: var(--color-text-soft);
+  font-size: var(--font-md);
+  font-style: italic;
+  text-align: center;
+}
+
+.orders-generate-btn {
+  padding: var(--space-3) var(--space-6);
+  background: linear-gradient(135deg, var(--color-border) 0%, var(--color-border-strong) 100%);
+  color: var(--color-text);
+  border: 2px solid var(--color-accent-gold);
+  border-radius: var(--radius-lg);
+  font-family: inherit;
+  font-size: var(--font-lg);
+  font-weight: var(--weight-medium);
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  box-shadow: var(--shadow-glow-gold-strong);
+  transition: all var(--transition);
+  -webkit-tap-highlight-color: transparent;
+  width: 100%;
+}
+
+.orders-generate-btn:active:not(:disabled) {
+  transform: translateY(1px);
+  background: linear-gradient(135deg, var(--color-border-strong) 0%, var(--color-border) 100%);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5),
+  0 0 20px rgba(201, 169, 98, 0.4);
+}
+
+.orders-generate-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.orders-generate-btn:focus,
+.orders-generate-btn:focus-visible {
+  outline: none;
+}
+
+.orders-action-error {
+  color: var(--color-danger-soft);
+  font-size: var(--font-md);
+  text-align: center;
+}
+
+
+/* ----- 5c. Route -----
+ *
+ * Header / map / stops list / inline cancel-confirm. Map gets a fixed
+ * height (--route-map-height) so #map { height: 100% } resolves correctly
+ * to a real pixel value. This is the fix for the map-not-appearing bug.
+ */
+
+.route-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  gap: var(--space-4);
+}
+
+/* ---- Header bar ---- */
+
+.route-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: 14px 18px;
+  background: var(--color-surface-2-strong);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+}
+
+.route-header-info {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  flex: 1;
+  min-width: 0;
+}
+
+.route-header-number {
+  color: var(--color-accent-gold);
+  font-weight: var(--weight-semibold);
+  font-size: var(--font-xl);
+  letter-spacing: 0.5px;
+}
+
+.route-header-summary {
+  color: var(--color-text-soft);
+  font-size: var(--font-md);
+}
+
+.route-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* ---- Empty state ---- */
+
+.route-empty {
+  padding: var(--space-8) var(--space-5);
+  text-align: center;
+  background: var(--color-surface-2-soft);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-xl);
+}
+
+.route-empty h2 {
+  color: var(--color-accent-gold);
+  margin: 0 0 var(--space-2);
+}
+
+.route-empty p {
+  color: var(--color-text-muted);
+  margin: 0 0 18px;
+}
+
+.route-empty-cta {
+  padding: var(--space-3) var(--space-7);
+  background: linear-gradient(135deg, var(--color-border) 0%, var(--color-border-strong) 100%);
+  color: var(--color-text);
+  border: 2px solid var(--color-accent-gold);
+  border-radius: var(--radius-lg);
+  font-family: inherit;
+  font-size: var(--font-lg);
+  cursor: pointer;
+}
+
+/* ---- Map container (Route tab override) ----
+ *
+ * THE BUG FIX. The base .map-container { height: 100% } collapses to 0 when
+ * nested inside .route-page (a flex column without a defined height chain
+ * for the child to resolve against). Set an explicit height here so
+ * #map { height: 100% } has something concrete to inherit.
+ */
+.route-page .map-container {
+  height: var(--route-map-height);
+  flex: 0 0 auto;
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+}
+
+/* ---- Stop cards ----
+ *
+ * Each stop is a full card with sequence badge, customer block, address,
+ * delivery instructions, and (when actionable) a Mark Delivered button.
+ */
+
+.route-stops {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.stop-card {
+  background: var(--color-surface-2);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  padding: 14px var(--space-4);
+  box-shadow: var(--shadow-card);
+}
+
+.stop-card-delivered {
+  border-color: var(--color-accent-green);
+  background: rgba(168, 212, 155, 0.08);
+}
+
+.stop-card-failed,
+.stop-card-skipped {
+  border-color: var(--color-danger);
+  background: var(--color-danger-tint-soft);
+  opacity: 0.85;
+}
+
+.stop-card-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: 10px;
+}
+
+.stop-seq {
+  flex: 0 0 36px;
+  height: 36px;
+  width: 36px;
+  border-radius: var(--radius-circle);
+  background: var(--color-accent-gold);
+  color: var(--color-text-on-accent);
+  font-weight: var(--weight-bold);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-lg);
+}
+
+.stop-card-delivered .stop-seq {
+  background: var(--color-accent-green);
+}
+
+.stop-customer {
+  flex: 1;
+  min-width: 0;
+}
+
+.stop-customer-name {
+  color: var(--color-text);
+  font-size: var(--font-lg);
+  font-weight: var(--weight-medium);
+}
+
+.stop-customer-phone {
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+  margin-top: 2px;
+}
+
+.stop-address {
+  color: var(--color-text-soft);
+  font-size: var(--font-md);
+  line-height: 1.4;
+  margin-bottom: var(--space-2);
+  padding-left: 48px;            /* align past the sequence badge */
+}
+
+.stop-instructions {
+  color: var(--color-text-soft);
+  font-size: var(--font-sm);
+  padding: 6px 10px;
+  margin: var(--space-2) 0 0 48px;
+  background: var(--color-surface-instr);
+  border-left: 3px solid var(--color-accent-gold);
+  border-radius: var(--radius-sm);
+}
+
+.stop-actions {
+  margin: var(--space-3) 0 0 48px;
+}
+
+.stop-mark-btn {
+  padding: 10px 18px;
+  font-size: var(--font-base);
+}
+
+.route-empty-stops {
+  text-align: center;
+  color: var(--color-text-muted);
+  font-style: italic;
+  padding: var(--space-6);
+}
+
+/* ---- Cancel confirm panel ---- */
+
+.route-confirm {
+  margin-top: var(--space-4);
+  padding: var(--space-4);
+  background: var(--color-danger-tint-soft);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-xl);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.route-confirm-text strong {
+  color: var(--color-danger-soft);
+  font-size: var(--font-lg);
+  display: block;
+  margin-bottom: 6px;
+}
+
+.route-confirm-text p {
+  color: var(--color-text-soft);
+  font-size: var(--font-md);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.route-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
