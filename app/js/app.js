@@ -10,16 +10,14 @@ const pageInitializers = {
   route: () => {
     // The map module's celtechSetRoute / celtechAddMarker queue calls made
     // before the map is built, so this ordering is safe:
-    //   1. initMap (async — buildMap will run when the Google API loads)
-    //   2. fetch active route (async)        — paints the left/main column
-    //   3. fetch orders (async)              — paints the right panel
+    //   1. initMap        — async; buildMap will run when the Google API loads
+    //   2. refreshActive  — fetches /routes/active, paints header + map + stops
     if (typeof window.celtechInitMap === 'function') {
       window.celtechInitMap();
     } else {
       console.error('Map module not loaded');
     }
     refreshActiveRoute();
-    renderRoutePageOrders();
   },
   orders: () => {
     renderOrdersList();
@@ -82,58 +80,62 @@ function isRoutable(order) {
 // ============================================================================
 // Orders page — listing, selection, Generate Route action
 //
-// State is module-scoped here but isolated from the Route page's orders
-// panel (which has its own renderer and doesn't touch these variables).
+// Filtered to routable orders only (PAID + null/PENDING delivery). The
+// full unfiltered list is no longer rendered; the Orders tab is now
+// purely the "what could I put on a new route right now" view.
 // ============================================================================
 
 let selectedOrderIds = new Set();
-let lastFetchedOrders = [];
+let lastFetchedOrders = [];          // routable subset only (post-filter)
 let isGeneratingRoute = false;
 
 async function renderOrdersList() {
   const list = document.getElementById('orders-list');
   if (!list) return;
 
-  const orders = await window.celtechApi.fetchOrders();
+  const all = await window.celtechApi.fetchOrders();
 
-  if (orders === null) {
+  if (all === null) {
     lastFetchedOrders = [];
     list.innerHTML = `<p class="error">Could not reach the order service. Check the backend connection.</p>`;
     updateOrdersControls();
     return;
   }
 
-  if (!Array.isArray(orders) || orders.length === 0) {
+  if (!Array.isArray(all) || all.length === 0) {
     lastFetchedOrders = [];
     list.innerHTML = `<p class="orders-empty">No orders to display.</p>`;
     updateOrdersControls();
     return;
   }
 
-  lastFetchedOrders = orders;
+  // Filter to routable only. The unfiltered list is intentionally discarded —
+  // anything assigned/delivered/etc. doesn't belong on a "plan a route" view.
+  const routable = all.filter(isRoutable);
+  lastFetchedOrders = routable;
 
-  const routableIds = new Set(orders.filter(isRoutable).map((o) => o.id));
+  // Prune selected ids that no longer appear (delivered/assigned elsewhere
+  // while the driver was on a different tab).
+  const visibleIds = new Set(routable.map((o) => o.id));
   for (const id of [...selectedOrderIds]) {
-    if (!routableIds.has(id)) selectedOrderIds.delete(id);
+    if (!visibleIds.has(id)) selectedOrderIds.delete(id);
   }
 
-  // Interactive mode — checkboxes, Select All, action bar all participate.
-  list.innerHTML = orders.map((o) => renderOrderCard(o, 'interactive')).join('');
+  if (routable.length === 0) {
+    list.innerHTML = `<p class="orders-empty">No routable orders right now. New paid orders will appear here.</p>`;
+    updateOrdersControls();
+    return;
+  }
+
+  list.innerHTML = routable.map(renderOrderCard).join('');
   updateOrdersControls();
 }
 
 /**
- * Render a single order as an HTML card.
- *
- * @param order  the DriverOrderDTO
- * @param mode   'interactive' (Orders tab — shows checkbox on routable rows)
- *               | 'readonly'  (Route tab right panel — no checkbox, no
- *                              hover hint, never marked "selected")
+ * Render a single order as a card. All cards here are routable (the list
+ * is pre-filtered in renderOrdersList), so every card gets a checkbox.
  */
-function renderOrderCard(order, mode) {
-  mode = mode || 'interactive';
-  const interactive = (mode === 'interactive');
-
+function renderOrderCard(order) {
   const id = order.id || '';
   const num = order.orderNumber || '—';
   const customer = escapeHtml(order.customerName || 'Unknown customer');
@@ -158,26 +160,20 @@ function renderOrderCard(order, mode) {
       ? `<div class="order-instructions">📋 ${escapeHtml(order.deliveryInstructions)}</div>`
       : '';
 
-  const routable = isRoutable(order);
+  const checked = selectedOrderIds.has(id) ? 'checked' : '';
+  const checkbox = `<label class="order-select" aria-label="Select order ${escapeHtml(String(num))}">
+                      <input type="checkbox" class="order-select-checkbox" data-order-id="${escapeHtml(id)}" ${checked}>
+                    </label>`;
 
-  // Checkbox slot: real checkbox only in interactive mode AND when routable.
-  // Read-only mode always emits the placeholder so card headers line up.
-  let checkbox;
-  if (interactive && routable) {
-    const checked = selectedOrderIds.has(id) ? 'checked' : '';
-    checkbox = `<label class="order-select" aria-label="Select order ${escapeHtml(String(num))}">
-                  <input type="checkbox" class="order-select-checkbox" data-order-id="${escapeHtml(id)}" ${checked}>
-                </label>`;
-  } else {
-    checkbox = `<span class="order-select order-select-placeholder" aria-hidden="true"></span>`;
-  }
-
+  // Show the more specific status when available — delivery state for
+  // PENDING; financial state otherwise. (Both are still possible here:
+  // a routable order can have null deliveryStatus or PENDING.)
   const statusBadge = deliveryStatus
       ? `<span class="order-status order-status-${deliveryStatus.toLowerCase()}" title="Delivery: ${deliveryStatus}">${deliveryStatus}</span>`
       : `<span class="order-status order-status-${orderStatus.toLowerCase()}">${orderStatus}</span>`;
 
   return `
-    <div class="order-card${routable ? '' : ' order-card-locked'}" data-order-id="${escapeHtml(id)}">
+    <div class="order-card" data-order-id="${escapeHtml(id)}">
       <div class="order-card-header">
         ${checkbox}
         <span class="order-number">#${escapeHtml(String(num))}</span>
@@ -203,8 +199,7 @@ function updateOrdersControls() {
   const count = document.getElementById('orders-action-count');
   const generate = document.getElementById('orders-generate-btn');
 
-  const routable = lastFetchedOrders.filter(isRoutable);
-  const routableCount = routable.length;
+  const routableCount = lastFetchedOrders.length;     // already filtered
   const selectedCount = selectedOrderIds.size;
 
   if (selectAll) {
@@ -257,9 +252,8 @@ function onOrdersPageChange(event) {
   const selectAll = event.target.closest('#orders-select-all');
   if (selectAll) {
     const checked = selectAll.checked;
-    const routable = lastFetchedOrders.filter(isRoutable);
-    if (checked) routable.forEach((o) => selectedOrderIds.add(o.id));
-    else routable.forEach((o) => selectedOrderIds.delete(o.id));
+    if (checked) lastFetchedOrders.forEach((o) => selectedOrderIds.add(o.id));
+    else lastFetchedOrders.forEach((o) => selectedOrderIds.delete(o.id));
     document.querySelectorAll('.order-select-checkbox').forEach((box) => {
       box.checked = selectedOrderIds.has(box.dataset.orderId);
     });
@@ -341,7 +335,7 @@ function showActiveRouteConflictModal(activeRouteId) {
 
 
 // ============================================================================
-// Route page — main column (active route header / map / stops)
+// Route page — fetch active, render header + map + stops
 // ============================================================================
 
 let currentRoute = null;
@@ -349,43 +343,54 @@ let currentRoute = null;
 async function refreshActiveRoute() {
   const route = await window.celtechApi.getActiveRoute();
   applyRouteToView(route);
-  // Keep the right-side orders panel fresh after any lifecycle action — a
-  // Mark Delivered shifts an order out of routable, a Cancel can shift
-  // many BACK into routable, etc. Cheap (one fetch).
-  renderRoutePageOrders();
 }
 
+/**
+ * Toggles between the empty state (no active route) and the two-column
+ * grid (active route present), then paints the route data into the grid.
+ *
+ * - #route-empty: spans the page when no active route exists
+ * - #route-grid:  the two-column layout (.route-main + .route-stops-panel)
+ *
+ * The cancel-confirm panel is always reset to hidden on (re)render — a
+ * fresh state means a fresh decision.
+ */
 function applyRouteToView(route) {
   currentRoute = route;
+
+  const empty = document.getElementById('route-empty');
+  const grid = document.getElementById('route-grid');
+  const confirmPanel = document.getElementById('route-confirm-cancel');
+
+  if (!grid || !empty) return;       // partial not currently mounted
+
+  if (confirmPanel) confirmPanel.hidden = true;
+
+  // No active route — show empty state, hide grid.
+  if (!route) {
+    if (typeof window.celtechClearRoute === 'function') {
+      window.celtechClearRoute();
+    }
+    empty.hidden = false;
+    grid.hidden = true;
+    return;
+  }
+
+  // Active route — show grid, hide empty.
+  empty.hidden = true;
+  grid.hidden = false;
 
   const header = document.getElementById('route-header');
   const headerNumber = document.getElementById('route-header-number');
   const headerStatus = document.getElementById('route-header-status');
   const headerSummary = document.getElementById('route-header-summary');
   const headerActions = document.getElementById('route-header-actions');
-  const empty = document.getElementById('route-empty');
   const mapWrap = document.getElementById('route-map-wrapper');
   const stops = document.getElementById('route-stops');
-  const confirmPanel = document.getElementById('route-confirm-cancel');
-
-  if (!header || !stops) return;
-
-  if (confirmPanel) confirmPanel.hidden = true;
-
-  if (!route) {
-    if (typeof window.celtechClearRoute === 'function') {
-      window.celtechClearRoute();
-    }
-    header.hidden = true;
-    if (mapWrap) mapWrap.style.display = 'none';
-    stops.innerHTML = '';
-    if (empty) empty.hidden = false;
-    return;
-  }
-
-  if (empty) empty.hidden = true;
 
   const isTerminal = route.status === 'COMPLETED' || route.status === 'CANCELLED';
+
+  // Map: hide for terminal routes (the geometry is meaningless once done).
   if (mapWrap) mapWrap.style.display = isTerminal ? 'none' : '';
 
   if (!isTerminal) {
@@ -406,7 +411,7 @@ function applyRouteToView(route) {
     }
   }
 
-  header.hidden = false;
+  // Header.
   headerNumber.textContent = `Route ${route.routeNumber || ''}`;
   headerStatus.textContent = route.status || '';
   headerStatus.className = `route-header-status route-header-status-${(route.status || '').toLowerCase()}`;
@@ -419,26 +424,41 @@ function applyRouteToView(route) {
 
   headerActions.innerHTML = renderHeaderActions(route);
 
-  stops.innerHTML = route.stops && route.stops.length
-      ? route.stops.map((s) => renderStopCard(s, route.status)).join('')
+  // Stops list — sequence order. The DTO already returns them sorted by
+  // sequence, but sort defensively in case the server's ordering shifts.
+  const sortedStops = Array.isArray(route.stops)
+      ? [...route.stops].sort((a, b) => (a.sequence || 0) - (b.sequence || 0))
+      : [];
+
+  stops.innerHTML = sortedStops.length
+      ? sortedStops.map((s) => renderStopCard(s, route.status)).join('')
       : `<p class="route-empty-stops">This route has no stops.</p>`;
 }
 
+/**
+ * Header action buttons depending on route status.
+ *
+ * Cancel is a .btn-secondary (outlined), not a .btn-link-danger. The link
+ * style looked unbalanced next to the gold-bordered primary button — the
+ * outlined secondary reads as "this is a button, but a less prominent one"
+ * which matches its role.
+ */
 function renderHeaderActions(route) {
   const status = route.status;
 
   if (status === 'PLANNED') {
     return `
       <button class="btn-primary" type="button" data-route-action="start">Start Route</button>
-      <button class="btn-link-danger" type="button" data-route-action="cancel-prompt">Cancel</button>
+      <button class="btn-secondary" type="button" data-route-action="cancel-prompt">Cancel</button>
     `;
   }
   if (status === 'IN_PROGRESS') {
     return `
       <button class="btn-primary" type="button" data-route-action="complete">Complete Route</button>
-      <button class="btn-link-danger" type="button" data-route-action="cancel-prompt">Cancel</button>
+      <button class="btn-secondary" type="button" data-route-action="cancel-prompt">Cancel</button>
     `;
   }
+  // Terminal — COMPLETED or CANCELLED. Offer a path back to planning a new one.
   return `
     <button class="btn-secondary" type="button" data-page="orders">Plan Another Route</button>
   `;
@@ -527,7 +547,6 @@ async function handleRouteStart() {
     return;
   }
   applyRouteToView(updated);
-  renderRoutePageOrders();
 }
 
 async function handleRouteComplete() {
@@ -538,7 +557,6 @@ async function handleRouteComplete() {
     return;
   }
   applyRouteToView(updated);
-  renderRoutePageOrders();
 }
 
 function showCancelConfirm() {
@@ -556,6 +574,8 @@ async function handleRouteCancel() {
     alert('Could not cancel route. Try again.');
     return;
   }
+  // After cancel, no route is active — refresh from /active so the UI
+  // accurately shows the empty state instead of the cancelled route.
   await refreshActiveRoute();
 }
 
@@ -575,43 +595,6 @@ async function handleMarkDelivered(deliveryId, btnEl) {
     return;
   }
   await refreshActiveRoute();
-}
-
-
-// ============================================================================
-// Route page — right-side orders reference panel
-//
-// Independent of the Orders tab. Renders ONLY routable orders, in read-only
-// mode (no checkboxes, no Select All, no Generate button). Refreshed on
-// initial Route tab mount and after every route-side lifecycle action.
-// ============================================================================
-
-async function renderRoutePageOrders() {
-  const list = document.getElementById('route-orders-list');
-  if (!list) return;
-
-  const orders = await window.celtechApi.fetchOrders();
-
-  if (orders === null) {
-    list.innerHTML = `<p class="error">Could not load orders.</p>`;
-    return;
-  }
-
-  if (!Array.isArray(orders) || orders.length === 0) {
-    list.innerHTML = `<p class="orders-empty">No orders available.</p>`;
-    return;
-  }
-
-  // Routable-only filter — the panel is "what could go on a NEW route,"
-  // so assigned/delivered/etc. don't belong here.
-  const routable = orders.filter(isRoutable);
-
-  if (routable.length === 0) {
-    list.innerHTML = `<p class="orders-empty">No orders available to route.</p>`;
-    return;
-  }
-
-  list.innerHTML = routable.map((o) => renderOrderCard(o, 'readonly')).join('');
 }
 
 

@@ -110,7 +110,16 @@
   --sidebar-width:  220px;
   --orders-width:   25%;          /* tunable for screen size */
   --orders-min-width: 280px;      /* below this, the cards stop being readable */
-  --route-map-height: 320px;      /* explicit so #map gets a real height */
+
+  /*
+   * Right-side stops panel on the Route tab. minmax() ensures the panel
+   * gets at least 280px (so stop cards stay readable) but no more than
+   * 38% of the page (so the map keeps useful real estate). On a narrow
+   * 7" kiosk the panel will sit at the 280px floor; on wider screens it
+   * proportionally grows.
+   */
+  --route-panel-width: minmax(280px, 38%);
+  --route-map-height: 480px;      /* explicit so #map gets a real height */
   --modal-max-width: 480px;
 
   /* ---- Typography ---- */
@@ -152,6 +161,17 @@
  * ============================================================================ */
 
 * { box-sizing: border-box; }
+
+/*
+ * Enforce the hidden HTML attribute. The user-agent stylesheet sets
+ * [hidden] { display: none }, but any class rule with an explicit
+ * `display:` value (e.g. `display: flex`) beats it on specificity. The
+ * !important here is the one place we want it — `hidden` is a hard
+ * "this element is not visible right now" signal and must always win.
+ */
+[hidden] {
+  display: none !important;
+}
 
 body {
   margin: 0;
@@ -236,10 +256,11 @@ body {
  * Note: an earlier version had a rule here that zapped padding for any
  * page hosting .map-container, designed for the original Route tab when
  * it was JUST a map. The current Route tab is a two-column layout
- * (route-main + route-orders), and the Orders tab doesn't have a map at
- * all, so that special case no longer applies and the standard .main
- * padding is correct for every page. If you ever build a full-bleed map
- * page, you can re-add a scoped rule for that specific page.
+ * (.route-main on the left + .route-stops-panel on the right), and the
+ * Orders tab doesn't have a map at all, so that special case no longer
+ * applies and the standard .main padding is correct for every page. If
+ * you ever build a full-bleed map page, you can re-add a scoped rule
+ * for that specific page.
  */
 
 
@@ -893,67 +914,74 @@ body {
 
 /* ----- 5c. Route -----
  *
- * Two-column layout:
- *   .route-main   — left column: header, map, stops, cancel-confirm
- *   .route-orders — right column: routable orders, read-only reference
+ * Layout:
+ *   .route-page  — outer container
+ *     #route-empty  — full-page empty state when no active route
+ *     #route-grid   — two-column grid (left: route, right: stops)
+ *       .route-main          — header + map + cancel-confirm
+ *       .route-stops-panel   — sequenced stops with Mark Delivered
  *
- * The right column width is controlled by the same --orders-width token
- * that the Orders tab uses (when the Orders tab is full-width, that token
- * is unused there but still defines this panel's width).
+ * The right panel width is controlled by --route-panel-width, which uses
+ * minmax(280px, 38%) — so on a narrow 7" kiosk it sits at the 280px
+ * floor (no wrapping below the left column), on wider screens it
+ * proportionally fills. This is the fix for the "panel showing full
+ * width below" bug.
  *
- * Map gets a fixed height (--route-map-height) so #map { height: 100% }
- * resolves correctly. This is the fix for the map-not-appearing bug.
+ * Map gets an explicit height via --route-map-height so #map { height:
+ * 100% } resolves correctly — fix for the map-not-appearing bug from a
+ * couple rounds back.
  */
 
 .route-page {
-  display: grid;
-  grid-template-columns: 1fr var(--orders-width);
-  gap: var(--space-5);
   min-height: 100%;
 }
 
-/* Left column — the main route view */
+.route-grid {
+  display: grid;
+  grid-template-columns: 1fr var(--route-panel-width);
+  gap: var(--space-5);
+  align-items: start;
+}
+
+/* Left column — header, map, cancel-confirm */
 .route-main {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  min-width: 0;                  /* prevents grid blowing out on long content */
+  min-width: 0;                  /* lets the column shrink below its content */
 }
 
-/* Right column — orders reference panel */
-.route-orders {
+/* Right column — stops in delivery order */
+.route-stops-panel {
   display: flex;
   flex-direction: column;
-  min-width: var(--orders-min-width);
   padding: var(--space-4);
   background: var(--color-surface-2-soft);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
-  /* Sticky so the orders stay visible while the left column scrolls */
+  min-width: 0;
+  /*
+   * Sticky-with-scroll keeps the stops visible while the left column
+   * map sits in place. Internal overflow handles a long stop list.
+   */
   position: sticky;
-  top: 0;
+  top: var(--space-5);
   align-self: start;
   max-height: calc(100vh - var(--space-8) * 2);
   overflow-y: auto;
 }
 
-.route-orders-title {
+.route-stops-panel-title {
   color: var(--color-accent-gold);
   font-size: var(--font-2xl);
   margin: 0 0 var(--space-1);
 }
 
-.route-orders-subtitle {
+.route-stops-panel-subtitle {
   color: var(--color-text-muted);
   font-size: var(--font-md);
   font-style: italic;
   margin: 0 0 var(--space-4);
-}
-
-.route-orders-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
 }
 
 /* ---- Header bar ---- */
@@ -1027,14 +1055,15 @@ body {
   cursor: pointer;
 }
 
-/* ---- Map container (Route tab override) ----
+/* ---- Map container (Route tab) ----
  *
- * THE BUG FIX. The base .map-container { height: 100% } collapses to 0 when
- * nested inside .route-page (a flex column without a defined height chain
- * for the child to resolve against). Set an explicit height here so
- * #map { height: 100% } has something concrete to inherit.
+ * Scoped to .route-main since that's the only place the map lives now.
+ * Explicit height (not min-height) so #map { height: 100% } can resolve.
+ *
+ * Since the stops moved to the right panel, the map can dominate the
+ * left column — taller than before.
  */
-.route-page .map-container {
+.route-main .map-container {
   height: var(--route-map-height);
   flex: 0 0 auto;
   border-radius: var(--radius-xl);
@@ -1053,11 +1082,17 @@ body {
   gap: var(--space-3);
 }
 
+/*
+ * Stop cards live in the narrow right panel (~280-380px wide).
+ * Tightened padding and indent vs. a full-width card so the address
+ * and customer name have room.
+ */
+
 .stop-card {
   background: var(--color-surface-2);
   border: 2px solid var(--color-border);
   border-radius: var(--radius-xl);
-  padding: 14px var(--space-4);
+  padding: var(--space-3) var(--space-3);
   box-shadow: var(--shadow-card);
 }
 
@@ -1076,14 +1111,14 @@ body {
 .stop-card-header {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  margin-bottom: 10px;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
 }
 
 .stop-seq {
-  flex: 0 0 36px;
-  height: 36px;
-  width: 36px;
+  flex: 0 0 32px;
+  height: 32px;
+  width: 32px;
   border-radius: var(--radius-circle);
   background: var(--color-accent-gold);
   color: var(--color-text-on-accent);
@@ -1091,7 +1126,7 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: var(--font-lg);
+  font-size: var(--font-base);
 }
 
 .stop-card-delivered .stop-seq {
@@ -1105,8 +1140,12 @@ body {
 
 .stop-customer-name {
   color: var(--color-text);
-  font-size: var(--font-lg);
+  font-size: var(--font-base);
   font-weight: var(--weight-medium);
+  /* Truncate overflowing names rather than wrapping awkwardly */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .stop-customer-phone {
@@ -1115,30 +1154,37 @@ body {
   margin-top: 2px;
 }
 
+/*
+ * Address sits below the header row (full width of the card, not
+ * indented past the sequence badge — at 280px the indent ate too much
+ * room). The slightly-smaller font keeps city/state/zip on one line.
+ */
 .stop-address {
   color: var(--color-text-soft);
-  font-size: var(--font-md);
+  font-size: var(--font-sm);
   line-height: 1.4;
   margin-bottom: var(--space-2);
-  padding-left: 48px;            /* align past the sequence badge */
 }
 
 .stop-instructions {
   color: var(--color-text-soft);
   font-size: var(--font-sm);
-  padding: 6px 10px;
-  margin: var(--space-2) 0 0 48px;
+  padding: 6px var(--space-2);
+  margin: var(--space-2) 0;
   background: var(--color-surface-instr);
   border-left: 3px solid var(--color-accent-gold);
   border-radius: var(--radius-sm);
 }
 
 .stop-actions {
-  margin: var(--space-3) 0 0 48px;
+  margin-top: var(--space-3);
 }
 
+/* Full-width Mark Delivered button at the bottom of each card — vertical
+ * space is cheap in the panel, horizontal isn't. */
 .stop-mark-btn {
-  padding: 10px 18px;
+  width: 100%;
+  padding: 10px var(--space-3);
   font-size: var(--font-base);
 }
 

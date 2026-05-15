@@ -1,77 +1,83 @@
 <div class="page-content route-page">
 
     <!--
-      Two-column layout:
-        .route-main   — header, map, stops list (the active route)
-        .route-orders — read-only reference panel of routable orders
-                        (kept visible regardless of route state for context)
+      Empty state — shown by applyRouteToView when GET /routes/active
+      returns null. Sits outside the two-column grid so it spans the
+      full page width when present (cleaner than splitting it across
+      .route-main + .route-stops).
     -->
-    <div class="route-main">
-
-        <!-- Header bar — populated by applyRouteToView -->
-        <div id="route-header" class="route-header" hidden>
-            <div class="route-header-info">
-                <span id="route-header-number" class="route-header-number"></span>
-                <span id="route-header-status" class="route-header-status"></span>
-                <span id="route-header-summary" class="route-header-summary"></span>
-            </div>
-            <div id="route-header-actions" class="route-header-actions"></div>
-        </div>
-
-        <!-- Empty state — shown when GET /routes/active returns 404 -->
-        <div id="route-empty" class="route-empty" hidden>
-            <h2>No active route</h2>
-            <p>Plan a route from the Orders tab to get started.</p>
-            <button class="route-empty-cta" type="button" data-page="orders">
-                Go to Orders
-            </button>
-        </div>
-
-        <!--
-          Map. Always present in the DOM so celtechInitMap() / queued
-          celtechSetRoute have a target. Hidden via inline display:none when
-          the route is COMPLETED or CANCELLED.
-        -->
-        <div id="route-map-wrapper" class="map-container">
-            <div id="map"></div>
-            <div id="map-overlay">
-                <div class="map-status" id="map-status">Locating...</div>
-            </div>
-        </div>
-
-        <!-- Stop cards — rendered by applyRouteToView -->
-        <div id="route-stops" class="route-stops"></div>
-
-        <!-- Inline cancel-confirm panel — hidden by default -->
-        <div id="route-confirm-cancel" class="route-confirm" hidden>
-            <div class="route-confirm-text">
-                <strong>Cancel this route?</strong>
-                <p>All deliveries on this route will be released back to PENDING and become available to add to a new route. This can't be undone.</p>
-            </div>
-            <div class="route-confirm-actions">
-                <button id="route-confirm-cancel-no" class="btn-secondary" type="button">Keep Route</button>
-                <button id="route-confirm-cancel-yes" class="btn-danger" type="button">Cancel Route</button>
-            </div>
-        </div>
-
-    </div><!-- /.route-main -->
+    <div id="route-empty" class="route-empty" hidden>
+        <h2>No active route</h2>
+        <p>Plan a route from the Orders tab to get started.</p>
+        <button class="route-empty-cta" type="button" data-page="orders">
+            Go to Orders
+        </button>
+    </div>
 
     <!--
-      Right-side orders reference panel. Shows routable orders only
-      (PAID + null/PENDING delivery) as read-only cards — no checkboxes,
-      no action bar, no Generate button. The driver can see what's
-      available to plan next while the current route is active.
-
-      Rendered by renderRoutePageOrders() in app.js. Uses a separate state
-      pool from the Orders tab so it can't interfere with the driver's
-      selection there.
+      Two-column grid (hidden when the empty state is shown):
+        .route-main   — header + map + cancel-confirm
+        .route-stops-panel — sequenced stops list with Mark Delivered actions
     -->
-    <aside class="route-orders">
-        <h2 class="route-orders-title">Routable Orders</h2>
-        <p class="route-orders-subtitle">Available to add to a new route</p>
-        <div id="route-orders-list" class="route-orders-list">
-            <p class="orders-loading">Loading orders…</p>
-        </div>
-    </aside>
+    <div id="route-grid" class="route-grid" hidden>
+
+        <div class="route-main">
+
+            <!-- Header bar — populated by applyRouteToView -->
+            <div id="route-header" class="route-header">
+                <div class="route-header-info">
+                    <span id="route-header-number" class="route-header-number"></span>
+                    <span id="route-header-status" class="route-header-status"></span>
+                    <span id="route-header-summary" class="route-header-summary"></span>
+                </div>
+                <div id="route-header-actions" class="route-header-actions"></div>
+            </div>
+
+            <!--
+              Map. Always present in the DOM so celtechInitMap() / queued
+              celtechSetRoute have a target. Hidden via inline display:none
+              when the route is COMPLETED or CANCELLED.
+            -->
+            <div id="route-map-wrapper" class="map-container">
+                <div id="map"></div>
+                <div id="map-overlay">
+                    <div class="map-status" id="map-status">Locating...</div>
+                </div>
+            </div>
+
+            <!--
+              Inline cancel-confirm panel — hidden by default. The hidden
+              attribute is enforced via the [hidden] rule near the top of
+              style.css so a class-level `display: flex` can't override it.
+            -->
+            <div id="route-confirm-cancel" class="route-confirm" hidden>
+                <div class="route-confirm-text">
+                    <strong>Cancel this route?</strong>
+                    <p>All deliveries on this route will be released back to PENDING and become available to add to a new route. This can't be undone.</p>
+                </div>
+                <div class="route-confirm-actions">
+                    <button id="route-confirm-cancel-no" class="btn-secondary" type="button">Keep Route</button>
+                    <button id="route-confirm-cancel-yes" class="btn-danger" type="button">Cancel Route</button>
+                </div>
+            </div>
+
+        </div><!-- /.route-main -->
+
+        <!--
+          Right-side stops panel. Stops are listed in `sequence` order with
+          their Mark Delivered buttons. Rendered by applyRouteToView from
+          the active route's stop list.
+
+          Sticky positioning keeps the list visible as the left column
+          (mostly the map) sits in place — internal scroll handles a long
+          stop list.
+        -->
+        <aside class="route-stops-panel">
+            <h2 class="route-stops-panel-title">Deliveries</h2>
+            <p class="route-stops-panel-subtitle">In delivery order</p>
+            <div id="route-stops" class="route-stops"></div>
+        </aside>
+
+    </div><!-- /#route-grid -->
 
 </div>
