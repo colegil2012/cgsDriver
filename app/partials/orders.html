@@ -1,7 +1,33 @@
-<div class="page-content">
+<div class="page-content orders-page">
     <h1>Orders</h1>
     <p class="orders-subtitle">All orders in the system</p>
+
+    <!--
+      Header row: Select All checkbox for the routable subset, plus a count
+      label. The checkbox shows tri-state (indeterminate) when some-but-not-
+      all routable orders are selected; app.js manages that.
+    -->
+    <div class="orders-controls">
+        <label class="orders-select-all-label">
+            <input type="checkbox" id="orders-select-all">
+            <span>Select all routable</span>
+        </label>
+    </div>
+
     <div id="orders-list" class="orders-list">
         <p class="orders-loading">Loading orders…</p>
+    </div>
+
+    <!--
+      Sticky action bar. Lives in document flow (not position:fixed) so it
+      sits below the list naturally; CSS pins it to the bottom of the page
+      while the list scrolls above. The button is disabled until at least
+      one order is selected.
+    -->
+    <div id="orders-action-bar" class="orders-action-bar">
+        <span id="orders-action-count" class="orders-action-count">No orders selected</span>
+        <button id="orders-generate-btn" class="orders-generate-btn" type="button" disabled>
+            Generate Route
+        </button>
     </div>
 </div>
