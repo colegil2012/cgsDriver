@@ -1,6 +1,69 @@
-<div class="map-container">
-    <div id="map"></div>
-    <div id="map-overlay">
-        <div class="map-status" id="map-status">Locating...</div>
+<div class="page-content route-page">
+
+    <!--
+      Header bar. Populated by app.js when the active route is known.
+      - .route-header-info  — route number + summary line
+      - .route-header-actions — the contextual button (Start / Complete) +
+                                Cancel link. app.js swaps these per status.
+    -->
+    <div id="route-header" class="route-header" hidden>
+        <div class="route-header-info">
+            <span id="route-header-number" class="route-header-number"></span>
+            <span id="route-header-status" class="route-header-status"></span>
+            <span id="route-header-summary" class="route-header-summary"></span>
+        </div>
+        <div id="route-header-actions" class="route-header-actions"></div>
+    </div>
+
+    <!--
+      Empty state — shown when GET /routes/active returns 404.
+      Replaces the map and the stops list when active.
+    -->
+    <div id="route-empty" class="route-empty" hidden>
+        <h2>No active route</h2>
+        <p>Plan a route from the Orders tab to get started.</p>
+        <button class="route-empty-cta" type="button" data-page="orders">
+            Go to Orders
+        </button>
+    </div>
+
+    <!--
+      Map. Always present in the DOM so celtechInitMap() / queued
+      celtechSetRoute have a target. Hidden via display:none when the route
+      is COMPLETED or CANCELLED — the header lists the terminal status and
+      the cards remain visible, but the map adds nothing.
+    -->
+    <div id="route-map-wrapper" class="map-container">
+        <div id="map"></div>
+        <div id="map-overlay">
+            <div class="map-status" id="map-status">Locating...</div>
+        </div>
+    </div>
+
+    <!--
+      Stops list. Cards rendered by app.js. Each card has:
+       - sequence number badge
+       - customer + address
+       - per-stop status pill
+       - Mark Delivered button (visible while not yet delivered)
+    -->
+    <div id="route-stops" class="route-stops"></div>
+
+    <!--
+      Confirm panel for the Cancel action. Hidden by default; app.js shows it
+      when the driver taps Cancel, and the panel itself has Confirm/Back
+      buttons. Inline confirm rather than a modal because it's less jarring
+      on a small kiosk screen and easier to dismiss with a tap anywhere
+      outside the buttons.
+    -->
+    <div id="route-confirm-cancel" class="route-confirm" hidden>
+        <div class="route-confirm-text">
+            <strong>Cancel this route?</strong>
+            <p>All deliveries on this route will be released back to PENDING and become available to add to a new route. This can't be undone.</p>
+        </div>
+        <div class="route-confirm-actions">
+            <button id="route-confirm-cancel-no" class="btn-secondary" type="button">Keep Route</button>
+            <button id="route-confirm-cancel-yes" class="btn-danger" type="button">Cancel Route</button>
+        </div>
     </div>
 </div>

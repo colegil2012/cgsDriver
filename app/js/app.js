@@ -8,11 +8,17 @@ const navButtons = document.querySelectorAll('.nav-btn');
 
 const pageInitializers = {
   route: () => {
+    // The map module's celtechSetRoute / celtechAddMarker queue calls made
+    // before the map is built, so this ordering is safe:
+    //   1. initMap (async — buildMap will run when the Google API loads)
+    //   2. fetch active route (async)
+    //   3. when it resolves, render header + stops, hand geometry to map
     if (typeof window.celtechInitMap === 'function') {
       window.celtechInitMap();
     } else {
       console.error('Map module not loaded');
     }
+    refreshActiveRoute();
   },
   orders: () => {
     renderOrdersList();
@@ -27,12 +33,10 @@ async function loadPage(pageName) {
     const html = await response.text();
     contentDiv.innerHTML = html;
 
-    // Update active button
     navButtons.forEach(btn => {
       btn.classList.toggle('active', btn.dataset.page === pageName);
     });
 
-    // Run page-specific initialization if needed
     if (pageInitializers[pageName]) {
       pageInitializers[pageName]();
     }
@@ -47,12 +51,13 @@ async function loadPage(pageName) {
 navButtons.forEach(button => {
   button.addEventListener('click', (event) => {
     loadPage(button.dataset.page);
-    event.currentTarget.blur();  // Release focus after tap
+    event.currentTarget.blur();
   });
 });
 
 // Event delegation for in-content navigation (handles elements with data-page
-// inside loaded partials, like the Start Your Journey button on home)
+// inside loaded partials, like the Start Your Journey button on home and the
+// Go to Orders button on the empty Route tab).
 contentDiv.addEventListener('click', (event) => {
   const target = event.target.closest('[data-page]');
   if (target && contentDiv.contains(target)) {
@@ -66,29 +71,10 @@ contentDiv.addEventListener('click', (event) => {
 // Orders page — listing, selection, Generate Route action
 // ============================================================================
 
-// Selected order ids, kept across re-renders of the Orders list. Cleared
-// when route generation succeeds (those orders are now ASSIGNED and will
-// filter out of the routable subset on the next render anyway).
 let selectedOrderIds = new Set();
-
-// Most recent fetch of orders. Cached so the Select All handler doesn't need
-// to re-query. Refreshed every time renderOrdersList runs.
 let lastFetchedOrders = [];
-
-// Whether a route-generation request is in flight. Disables the action bar
-// so a double-tap during the network call doesn't fire twice.
 let isGeneratingRoute = false;
 
-/**
- * Whether an order is eligible to be added to a new route.
- *
- *   - status must be PAID (financial state)
- *   - deliveryStatus must be null (no Delivery yet, lazy-create on POST)
- *     or "PENDING" (Delivery exists but not on a route)
- *
- * Anything else (ASSIGNED, OUT_FOR_DELIVERY, DELIVERED, FAILED, SKIPPED) is
- * still shown in the list, but without a checkbox.
- */
 function isRoutable(order) {
   if (!order || order.status !== 'PAID') return false;
   const ds = order.deliveryStatus;
@@ -117,9 +103,6 @@ async function renderOrdersList() {
 
   lastFetchedOrders = orders;
 
-  // Prune any selected ids that no longer appear in the routable subset —
-  // they may have been delivered or assigned to another route while the
-  // driver was elsewhere.
   const routableIds = new Set(orders.filter(isRoutable).map((o) => o.id));
   for (const id of [...selectedOrderIds]) {
     if (!routableIds.has(id)) selectedOrderIds.delete(id);
@@ -154,8 +137,6 @@ function renderOrderCard(order) {
       ? `<div class="order-instructions">📋 ${escapeHtml(order.deliveryInstructions)}</div>`
       : '';
 
-  // Checkbox only on routable orders. The card markup still includes a
-  // placeholder column on non-routable rows so the grid lines up.
   const routable = isRoutable(order);
   const checked = routable && selectedOrderIds.has(id) ? 'checked' : '';
   const checkbox = routable
@@ -164,8 +145,6 @@ function renderOrderCard(order) {
          </label>`
       : `<span class="order-select order-select-placeholder" aria-hidden="true"></span>`;
 
-  // Combine order + delivery status into one badge area. Delivery is the
-  // more informative signal when present.
   const statusBadge = deliveryStatus
       ? `<span class="order-status order-status-${deliveryStatus.toLowerCase()}" title="Delivery: ${deliveryStatus}">${deliveryStatus}</span>`
       : `<span class="order-status order-status-${orderStatus.toLowerCase()}">${orderStatus}</span>`;
@@ -192,10 +171,6 @@ function renderOrderCard(order) {
   `;
 }
 
-/**
- * Refresh the Select All checkbox state + action bar count/disabled state.
- * Called whenever the selection set changes, or after a render.
- */
 function updateOrdersControls() {
   const selectAll = document.getElementById('orders-select-all');
   const count = document.getElementById('orders-action-count');
@@ -207,10 +182,7 @@ function updateOrdersControls() {
 
   if (selectAll) {
     selectAll.disabled = routableCount === 0 || isGeneratingRoute;
-    if (routableCount === 0) {
-      selectAll.checked = false;
-      selectAll.indeterminate = false;
-    } else if (selectedCount === 0) {
+    if (routableCount === 0 || selectedCount === 0) {
       selectAll.checked = false;
       selectAll.indeterminate = false;
     } else if (selectedCount === routableCount) {
@@ -236,13 +208,7 @@ function updateOrdersControls() {
   }
 }
 
-/**
- * Event delegation on the Orders page — handles checkbox toggles, Select All,
- * and the Generate Route button. One listener on the content div, attached
- * once (see bottom of file).
- */
 function onOrdersPageClick(event) {
-  // Generate Route button
   const genBtn = event.target.closest('#orders-generate-btn');
   if (genBtn) {
     handleGenerateRoute();
@@ -251,7 +217,6 @@ function onOrdersPageClick(event) {
 }
 
 function onOrdersPageChange(event) {
-  // Per-order checkbox
   const cb = event.target.closest('.order-select-checkbox');
   if (cb) {
     const id = cb.dataset.orderId;
@@ -262,18 +227,12 @@ function onOrdersPageChange(event) {
     return;
   }
 
-  // Select-all toggle
   const selectAll = event.target.closest('#orders-select-all');
   if (selectAll) {
     const checked = selectAll.checked;
     const routable = lastFetchedOrders.filter(isRoutable);
-    if (checked) {
-      routable.forEach((o) => selectedOrderIds.add(o.id));
-    } else {
-      routable.forEach((o) => selectedOrderIds.delete(o.id));
-    }
-    // Reflect the new state on every per-order checkbox in the DOM. Avoids
-    // re-rendering the whole list for what's essentially a visual toggle.
+    if (checked) routable.forEach((o) => selectedOrderIds.add(o.id));
+    else routable.forEach((o) => selectedOrderIds.delete(o.id));
     document.querySelectorAll('.order-select-checkbox').forEach((box) => {
       box.checked = selectedOrderIds.has(box.dataset.orderId);
     });
@@ -286,12 +245,6 @@ async function handleGenerateRoute() {
   if (isGeneratingRoute || selectedOrderIds.size === 0) return;
 
   const orderIds = Array.from(selectedOrderIds);
-
-  // Fresh UUID per attempt. Multiple Generate-Route clicks for the same
-  // basket should produce ONE route (the second click matches via key);
-  // but if the driver intentionally regenerates after marking some stops
-  // failed/skipped, that's a new attempt with a new key. crypto.randomUUID
-  // is available in all modern browsers including Chromium on Wayland.
   const idempotencyKey = (window.crypto && typeof window.crypto.randomUUID === 'function')
       ? window.crypto.randomUUID()
       : `kiosk-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -299,12 +252,24 @@ async function handleGenerateRoute() {
   isGeneratingRoute = true;
   updateOrdersControls();
 
-  const route = await window.celtechApi.generateRoute(orderIds, idempotencyKey);
+  const result = await window.celtechApi.generateRoute(orderIds, idempotencyKey);
 
   isGeneratingRoute = false;
 
-  if (!route) {
-    // The API client already logged the failure. Surface it on the page.
+  // Special case: 409 "route already active" — show a modal that lets the
+  // driver navigate to the existing route. The safer-cancel UX choice means
+  // there's no "throw away the active route and replace" button here; to
+  // cancel, the driver must go to the Route tab.
+  if (result && result.__apiError && result.status === 409) {
+    const activeRouteId = result.body
+        && result.body.details
+        && result.body.details.activeRouteId;
+    showActiveRouteConflictModal(activeRouteId);
+    updateOrdersControls();
+    return;
+  }
+
+  if (!result) {
     const bar = document.getElementById('orders-action-bar');
     if (bar) {
       const existing = bar.querySelector('.orders-action-error');
@@ -318,28 +283,320 @@ async function handleGenerateRoute() {
     return;
   }
 
-  // Success. Hand the route off to the map module — celtechSetRoute is safe
-  // to call before the map exists (it queues). Clear any prior route first.
-  if (typeof window.celtechClearRoute === 'function') {
-    window.celtechClearRoute();
-  }
-  if (route.geometry && typeof window.celtechSetRoute === 'function') {
-    // RouteDTO.geometry is { type: "LineString", coordinates: [...] } already,
-    // which is exactly what celtechSetRoute accepts.
-    window.celtechSetRoute(route.geometry);
-  }
-
-  // Stash the route so Round B's route panel renderer can read it. Until
-  // that ships, navigating to the Route tab just shows the polyline.
-  window.celtechCurrentRoute = route;
-
-  // Clear the selection — those orders are now ASSIGNED and won't reappear
-  // in the routable subset.
+  // Success.
+  applyRouteToView(result);
   selectedOrderIds.clear();
-
-  // Navigate to the Route tab. loadPage will call celtechInitMap which
-  // resolves apiReady → buildMap → drains the queued setRoute.
   loadPage('route');
+}
+
+/**
+ * Build a small modal informing the driver that a route is already active.
+ * Single action — navigate to the Route tab; cancellation happens there
+ * with a separate confirmation step.
+ */
+function showActiveRouteConflictModal(activeRouteId) {
+  // Remove any existing modal first (in case the driver triggered twice).
+  document.querySelectorAll('.kiosk-modal-backdrop').forEach((el) => el.remove());
+
+  const backdrop = document.createElement('div');
+  backdrop.className = 'kiosk-modal-backdrop';
+  backdrop.innerHTML = `
+    <div class="kiosk-modal" role="dialog" aria-labelledby="kiosk-modal-title">
+      <h3 id="kiosk-modal-title">You already have an active route</h3>
+      <p>You can have one active route at a time. Open it to continue, complete it, or cancel it.</p>
+      <div class="kiosk-modal-actions">
+        <button class="btn-secondary" type="button" data-modal-action="dismiss">Stay Here</button>
+        <button class="btn-primary" type="button" data-modal-action="open-route">Open Active Route</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+
+  backdrop.addEventListener('click', (e) => {
+    const action = e.target.dataset && e.target.dataset.modalAction;
+    if (action === 'dismiss' || e.target === backdrop) {
+      backdrop.remove();
+    } else if (action === 'open-route') {
+      backdrop.remove();
+      loadPage('route');
+    }
+  });
+}
+
+
+// ============================================================================
+// Route page — active-route fetch, header, stops, lifecycle actions
+// ============================================================================
+
+// Last fetched active route. Used by lifecycle handlers so they don't have
+// to refetch just to know the id/status. Cleared when the route's no longer
+// active or when navigating away.
+let currentRoute = null;
+
+/**
+ * Called from pageInitializers.route. Fetches the active route from the
+ * backend, then renders the header + stops + drops the geometry on the map.
+ * If no active route exists, renders the empty state.
+ */
+async function refreshActiveRoute() {
+  const route = await window.celtechApi.getActiveRoute();
+  applyRouteToView(route);
+}
+
+/**
+ * Render whatever the current view of the active route should be. Called
+ * after the active fetch, after a Generate succeeds (no need to re-fetch
+ * what we just got back), and after every lifecycle action.
+ *
+ * Pass null to mean "no active route — show the empty state."
+ */
+function applyRouteToView(route) {
+  currentRoute = route;
+
+  const header = document.getElementById('route-header');
+  const headerNumber = document.getElementById('route-header-number');
+  const headerStatus = document.getElementById('route-header-status');
+  const headerSummary = document.getElementById('route-header-summary');
+  const headerActions = document.getElementById('route-header-actions');
+  const empty = document.getElementById('route-empty');
+  const mapWrap = document.getElementById('route-map-wrapper');
+  const stops = document.getElementById('route-stops');
+  const confirmPanel = document.getElementById('route-confirm-cancel');
+
+  // If the Route partial isn't currently mounted, bail. This can happen if
+  // refreshActiveRoute resolves after the user nav'd away.
+  if (!header || !stops) return;
+
+  // Always hide the cancel-confirm panel on (re)render — a fresh state means
+  // a fresh decision.
+  if (confirmPanel) confirmPanel.hidden = true;
+
+  // No active route — clear map artifacts, show empty state.
+  if (!route) {
+    if (typeof window.celtechClearRoute === 'function') {
+      window.celtechClearRoute();
+    }
+    header.hidden = true;
+    if (mapWrap) mapWrap.style.display = 'none';
+    stops.innerHTML = '';
+    if (empty) empty.hidden = false;
+    return;
+  }
+
+  // Active route — render the header + stops + map.
+  if (empty) empty.hidden = true;
+
+  const isTerminal = route.status === 'COMPLETED' || route.status === 'CANCELLED';
+
+  // Map: hide for terminal routes (the geometry is meaningless once done).
+  // For PLANNED / IN_PROGRESS, show and re-draw.
+  if (mapWrap) mapWrap.style.display = isTerminal ? 'none' : '';
+
+  if (!isTerminal) {
+    if (typeof window.celtechClearRoute === 'function') {
+      window.celtechClearRoute();
+    }
+    if (route.geometry && typeof window.celtechSetRoute === 'function') {
+      window.celtechSetRoute(route.geometry);
+    }
+    // Numbered stop markers — sequence as the visible label.
+    if (Array.isArray(route.stops) && typeof window.celtechAddMarker === 'function') {
+      route.stops.forEach((stop) => {
+        const a = stop.address || {};
+        if (a.latitude != null && a.longitude != null) {
+          const label = `#${stop.sequence} — ${stop.customerName || 'Stop'}`;
+          window.celtechAddMarker(a.latitude, a.longitude, label);
+        }
+      });
+    }
+  }
+
+  // Header.
+  header.hidden = false;
+  headerNumber.textContent = `Route ${route.routeNumber || ''}`;
+  headerStatus.textContent = route.status || '';
+  headerStatus.className = `route-header-status route-header-status-${(route.status || '').toLowerCase()}`;
+
+  const totals = route.totals || {};
+  const distKm = totals.distanceMeters != null ? (totals.distanceMeters / 1000).toFixed(1) + ' km' : '';
+  const durMin = totals.durationSeconds != null ? Math.round(totals.durationSeconds / 60) + ' min' : '';
+  const stopCount = totals.stopCount != null ? `${totals.stopCount} stop${totals.stopCount === 1 ? '' : 's'}` : '';
+  headerSummary.textContent = [stopCount, distKm, durMin].filter(Boolean).join(' · ');
+
+  // Header actions based on status.
+  headerActions.innerHTML = renderHeaderActions(route);
+
+  // Stops list.
+  stops.innerHTML = route.stops && route.stops.length
+      ? route.stops.map((s) => renderStopCard(s, route.status)).join('')
+      : `<p class="route-empty-stops">This route has no stops.</p>`;
+}
+
+function renderHeaderActions(route) {
+  const status = route.status;
+
+  if (status === 'PLANNED') {
+    return `
+      <button class="btn-primary" type="button" data-route-action="start">Start Route</button>
+      <button class="btn-link-danger" type="button" data-route-action="cancel-prompt">Cancel</button>
+    `;
+  }
+  if (status === 'IN_PROGRESS') {
+    return `
+      <button class="btn-primary" type="button" data-route-action="complete">Complete Route</button>
+      <button class="btn-link-danger" type="button" data-route-action="cancel-prompt">Cancel</button>
+    `;
+  }
+  // Terminal — COMPLETED or CANCELLED. Offer a path back to planning a new one.
+  return `
+    <button class="btn-secondary" type="button" data-page="orders">Plan Another Route</button>
+  `;
+}
+
+function renderStopCard(stop, routeStatus) {
+  const seq = stop.sequence != null ? String(stop.sequence) : '?';
+  const customer = escapeHtml(stop.customerName || 'Unknown customer');
+  const phone = escapeHtml(stop.customerPhone || '');
+  const deliveryId = stop.deliveryId || '';
+  const status = stop.status || 'PENDING';
+
+  const addr = stop.address || {};
+  const addrLine1 = escapeHtml([addr.street1, addr.street2].filter(Boolean).join(', ') || '—');
+  const addrLine2 = escapeHtml(
+      [addr.city, addr.state].filter(Boolean).join(', ') +
+      (addr.zip ? ` ${addr.zip}` : '')
+  );
+
+  const instructions = stop.deliveryInstructions
+      ? `<div class="stop-instructions">📋 ${escapeHtml(stop.deliveryInstructions)}</div>`
+      : '';
+
+  // Mark Delivered button — only when this stop is still actionable, AND
+  // the route is in a state where action makes sense. For now: show on
+  // IN_PROGRESS routes for stops that haven't reached a terminal delivery
+  // state. (Round B+ scope; Skip/Failed are explicitly deferred.)
+  const stopIsTerminal = status === 'DELIVERED' || status === 'FAILED' || status === 'SKIPPED';
+  const showMarkDelivered = routeStatus === 'IN_PROGRESS' && !stopIsTerminal;
+  const markBtn = showMarkDelivered
+      ? `<button class="btn-primary stop-mark-btn" type="button"
+                 data-stop-action="mark-delivered"
+                 data-delivery-id="${escapeHtml(deliveryId)}">Mark Delivered</button>`
+      : '';
+
+  return `
+    <div class="stop-card stop-card-${status.toLowerCase()}" data-delivery-id="${escapeHtml(deliveryId)}">
+      <div class="stop-card-header">
+        <span class="stop-seq">${seq}</span>
+        <div class="stop-customer">
+          <div class="stop-customer-name">${customer}</div>
+          ${phone ? `<div class="stop-customer-phone">${phone}</div>` : ''}
+        </div>
+        <span class="stop-status stop-status-${status.toLowerCase()}">${escapeHtml(status)}</span>
+      </div>
+      <div class="stop-address">
+        <div>${addrLine1}</div>
+        <div>${addrLine2}</div>
+      </div>
+      ${instructions}
+      ${markBtn ? `<div class="stop-actions">${markBtn}</div>` : ''}
+    </div>
+  `;
+}
+
+/**
+ * Click handler on the Route tab. Single delegated listener.
+ */
+function onRoutePageClick(event) {
+  const actionTarget = event.target.closest('[data-route-action]');
+  if (actionTarget) {
+    const action = actionTarget.dataset.routeAction;
+    if (action === 'start') return handleRouteStart();
+    if (action === 'complete') return handleRouteComplete();
+    if (action === 'cancel-prompt') return showCancelConfirm();
+    return;
+  }
+
+  const stopAction = event.target.closest('[data-stop-action]');
+  if (stopAction) {
+    const action = stopAction.dataset.stopAction;
+    if (action === 'mark-delivered') {
+      return handleMarkDelivered(stopAction.dataset.deliveryId, stopAction);
+    }
+    return;
+  }
+
+  // Cancel confirm panel buttons.
+  if (event.target.id === 'route-confirm-cancel-no') {
+    const panel = document.getElementById('route-confirm-cancel');
+    if (panel) panel.hidden = true;
+    return;
+  }
+  if (event.target.id === 'route-confirm-cancel-yes') {
+    return handleRouteCancel();
+  }
+}
+
+async function handleRouteStart() {
+  if (!currentRoute) return;
+  const updated = await window.celtechApi.startRoute(currentRoute.id);
+  if (!updated) {
+    alert('Could not start route. Try again.');
+    return;
+  }
+  applyRouteToView(updated);
+}
+
+async function handleRouteComplete() {
+  if (!currentRoute) return;
+  const updated = await window.celtechApi.completeRoute(currentRoute.id);
+  if (!updated) {
+    alert('Could not complete route. Try again.');
+    return;
+  }
+  applyRouteToView(updated);
+}
+
+function showCancelConfirm() {
+  const panel = document.getElementById('route-confirm-cancel');
+  if (panel) {
+    panel.hidden = false;
+    panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+}
+
+async function handleRouteCancel() {
+  if (!currentRoute) return;
+  const updated = await window.celtechApi.cancelRoute(currentRoute.id);
+  if (!updated) {
+    alert('Could not cancel route. Try again.');
+    return;
+  }
+  // After cancel, the route is CANCELLED — but it's no longer "the active
+  // route" from the server's perspective. Refresh from /active so the UI
+  // accurately reflects "no active route" instead of showing the cancelled
+  // one with stale data.
+  await refreshActiveRoute();
+}
+
+async function handleMarkDelivered(deliveryId, btnEl) {
+  if (!deliveryId) return;
+  if (btnEl) {
+    btnEl.disabled = true;
+    btnEl.textContent = 'Marking…';
+  }
+  const result = await window.celtechApi.updateDeliveryStatus(deliveryId, 'SUCCESS');
+  if (!result) {
+    alert('Could not mark delivered. Try again.');
+    if (btnEl) {
+      btnEl.disabled = false;
+      btnEl.textContent = 'Mark Delivered';
+    }
+    return;
+  }
+  // Re-fetch the active route so the UI reflects the new delivery status.
+  // Doing a full refresh (rather than mutating in place) is cheaper to reason
+  // about and avoids drift if the backend's view diverges from ours.
+  await refreshActiveRoute();
 }
 
 
@@ -367,11 +624,9 @@ function formatCurrency(amount) {
 // Cross-page listeners
 // ============================================================================
 
-// One click listener and one change listener at the content root. They
-// dispatch based on what was clicked/changed, so we don't need to re-attach
-// handlers every time the Orders partial re-renders.
 contentDiv.addEventListener('click', onOrdersPageClick);
 contentDiv.addEventListener('change', onOrdersPageChange);
+contentDiv.addEventListener('click', onRoutePageClick);
 
 
 // Load home page on startup

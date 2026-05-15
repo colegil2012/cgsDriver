@@ -8,10 +8,20 @@
 // All methods return null on failure so callers don't need try/catch — matches
 // the convention used by geocoder.js and router.js.
 //
+// generateRoute is the one method that DOES return more than just null on
+// failure: a 409 (route-already-active) returns an object with an `error`
+// shape so the kiosk can navigate the driver to the existing route. Other
+// 409s are logged and return null like other failures.
+//
 // Backend endpoints:
 //   GET   /api/driver/orders                          -> [DriverOrderDTO]
-//   POST  /api/driver/routes                          -> RouteDTO    (201 new / 200 idempotency match)
+//   POST  /api/driver/routes                          -> RouteDTO   (201 new / 200 idempotency)
+//                                                       409 if a route is already active
+//   GET   /api/driver/routes/active                   -> RouteDTO   (404 if none)
 //   GET   /api/driver/routes/{id}                     -> RouteDTO
+//   POST  /api/driver/routes/{id}/start               -> RouteDTO
+//   POST  /api/driver/routes/{id}/complete            -> RouteDTO
+//   POST  /api/driver/routes/{id}/cancel              -> RouteDTO
 //   PATCH /api/driver/deliveries/{id}/status          -> { deliveryId, status, deliveredAt, attemptCount }
 
 (function () {
@@ -23,7 +33,6 @@
             console.error('API_BASE_URL missing from config');
             return null;
         }
-        // Strip trailing slash so we can concatenate paths without doubling it.
         return base.replace(/\/$/, '');
     }
 
@@ -38,25 +47,46 @@
         return headers;
     }
 
-    async function request(method, path, body) {
+    /**
+     * Core fetch wrapper.
+     *
+     * Behavior on non-2xx:
+     *   - quiet404: returns null without logging (used by /active where 404 is expected)
+     *   - capture409: returns the parsed error body so callers can branch on it
+     *                 (used by POST /routes for the active-route conflict)
+     *   - otherwise: logs the error and returns null
+     */
+    async function request(method, path, body, opts) {
+        opts = opts || {};
         const base = getBase();
         if (!base) return null;
 
-        const opts = {
+        const fetchOpts = {
             method,
             headers: authHeaders()
         };
         if (body !== undefined) {
-            opts.body = JSON.stringify(body);
+            fetchOpts.body = JSON.stringify(body);
         }
 
         try {
-            const response = await fetch(`${base}${path}`, opts);
+            const response = await fetch(`${base}${path}`, fetchOpts);
+
             if (!response.ok) {
+                // Quiet 404 — expected for /active when no route is active.
+                if (response.status === 404 && opts.quiet404) {
+                    return null;
+                }
+                // 409 — let the caller see the parsed body if asked.
+                if (response.status === 409 && opts.capture409) {
+                    const errBody = await response.json().catch(() => null);
+                    return { __apiError: true, status: 409, body: errBody };
+                }
                 const text = await response.text().catch(() => '');
                 console.error(`API ${method} ${path} failed:`, response.status, text);
                 return null;
             }
+
             if (response.status === 204) return true;
 
             const text = await response.text();
@@ -68,7 +98,6 @@
                 return null;
             }
         } catch (error) {
-            // Network errors land here — DNS failure, connection refused, etc.
             console.error(`API ${method} ${path} network error:`, error);
             return null;
         }
@@ -80,10 +109,6 @@
         // Orders
         // ====================================================================
 
-        /**
-         * Fetch every order (sorted newest first server-side).
-         * @returns {Promise<Array|null>} array of DriverOrderDTO, or null on failure
-         */
         fetchOrders: function () {
             return request('GET', '/api/driver/orders');
         },
@@ -93,48 +118,55 @@
         // ====================================================================
 
         /**
-         * Generate a route from selected order ids.
+         * Generate a route. The idempotency key guards against double-clicks.
          *
-         * The idempotency key guards against double-clicks and network retries:
-         * resubmitting with the same key returns the existing route (HTTP 200)
-         * instead of generating a new one (HTTP 201). Callers should generate
-         * a fresh UUID per Generate-Route click.
-         *
-         * @param {string[]} orderIds       order ids selected by the driver
-         * @param {string}   idempotencyKey UUID per generation attempt
-         * @returns {Promise<Object|null>}  RouteDTO, or null on failure
+         * Special handling: on a 409 from the active-route guard, returns an
+         * object {__apiError: true, status: 409, body: {error, message, details: {activeRouteId}}}
+         * so the kiosk can navigate the driver to the existing route. All
+         * other failures still return null.
          */
         generateRoute: function (orderIds, idempotencyKey) {
-            return request('POST', '/api/driver/routes', {
-                orderIds,
-                idempotencyKey
-            });
+            return request(
+                'POST',
+                '/api/driver/routes',
+                { orderIds, idempotencyKey },
+                { capture409: true }
+            );
         },
 
         /**
-         * Re-fetch a previously generated route by id.
-         * Used when the kiosk navigates back to the Route tab after losing
-         * in-memory state (e.g. page refresh).
-         *
-         * @param {string} routeId
-         * @returns {Promise<Object|null>} RouteDTO, or null on failure
+         * Fetch the currently-active route, or null if none. A 404 from the
+         * backend is treated as a successful "no active route" result — no
+         * scary console error in that case.
          */
+        getActiveRoute: function () {
+            return request('GET', '/api/driver/routes/active', undefined, { quiet404: true });
+        },
+
+        /** Fetch a specific route by id. */
         getRoute: function (routeId) {
             return request('GET', `/api/driver/routes/${encodeURIComponent(routeId)}`);
+        },
+
+        /** Transition PLANNED -> IN_PROGRESS. */
+        startRoute: function (routeId) {
+            return request('POST', `/api/driver/routes/${encodeURIComponent(routeId)}/start`);
+        },
+
+        /** Transition IN_PROGRESS -> COMPLETED. */
+        completeRoute: function (routeId) {
+            return request('POST', `/api/driver/routes/${encodeURIComponent(routeId)}/complete`);
+        },
+
+        /** Cancel an active route. Releases its deliveries back to PENDING. */
+        cancelRoute: function (routeId) {
+            return request('POST', `/api/driver/routes/${encodeURIComponent(routeId)}/cancel`);
         },
 
         // ====================================================================
         // Deliveries
         // ====================================================================
 
-        /**
-         * Record the outcome of a delivery attempt.
-         *
-         * @param {string} deliveryId
-         * @param {('SUCCESS'|'FAILED'|'SKIPPED')} outcome
-         * @param {string} [notes] optional driver notes captured on the attempt
-         * @returns {Promise<Object|null>} { deliveryId, status, deliveredAt, attemptCount } or null
-         */
         updateDeliveryStatus: function (deliveryId, outcome, notes) {
             const body = { outcome };
             if (notes != null && notes !== '') body.notes = notes;
